@@ -140,7 +140,7 @@ function libraryScenarios() {
   try { return typeof scenarios === 'object' && scenarios ? scenarios : {}; } catch { return {}; }
 }
 
-function fromLibrary(key) {
+function fromLibrary(key, intention) {
   const x = libraryScenarios()[key];
   if (!x) return null;
   const strip = t => String(t).replace(/[“”"]/g, '').trim();
@@ -152,7 +152,7 @@ function fromLibrary(key) {
     title: strip(x.title),
     summary: x.context,
     persona: { name: x.role, role: `Your AI counterpart · ${x.audience.toLowerCase()} scenario`, initials: x.role.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() },
-    objective: x.intentions.map(i => i.label).join(' '),
+    objective: x.intentions[intention]?.label || x.intentions.map(i => i.label).join(' '),
     tips: x.intentions.map(i => i.next),
     intentions: x.intentions,
     firstMessage: strip(x.opening),
@@ -264,25 +264,41 @@ function ensureDialog() {
   d.setAttribute('aria-labelledby', 'vp-title');
   d.innerHTML = `<div class="vp-header"><img src="imgs/REPS_logo.png" alt="REPS" width="2086" height="754"><span class="vp-badge">VOICE PITCH · ELEVENLABS</span><button class="vp-close" type="button" aria-label="Close voice practice">×</button></div><div class="vp-body" id="vp-content"></div>`;
   document.body.appendChild(d);
-  d.querySelector('.vp-close').addEventListener('click', () => d.close());
-  d.addEventListener('close', async () => {
-    await endCall();
-    document.body.classList.remove('modal-open');
-    if (returnFocus?.isConnected) returnFocus.focus();
-  });
+  d.querySelector('.vp-close').addEventListener('click', closeDialog);
+  d.addEventListener('close', handleClosed); // Esc key
   d.addEventListener('click', onDialogClick);
   return d;
 }
 
-function open(key, trigger, scenario) {
+function closeDialog() {
+  $('#voice-dialog')?.close();
+  handleClosed();
+}
+
+// Runs once per session, whether closed by our buttons or by Esc.
+async function handleClosed() {
+  if (!state || state.closed) return;
+  state.closed = true;
+  const onClose = state.onClose;
+  const spoke = state.messages.some(m => m.who === 'you');
+  await endCall();
+  // Another REPS dialog (e.g. the practice loop) may still be open underneath.
+  if (!document.querySelector('dialog[open]')) document.body.classList.remove('modal-open');
+  if (returnFocus?.isConnected) returnFocus.focus();
+  onClose?.({ spoke });
+}
+
+function open(key, trigger, scenario, opts = {}) {
   returnFocus = trigger || document.activeElement;
-  scenario ||= key === 'random' ? generateScenario() : key.startsWith('lib:') ? fromLibrary(key.slice(4)) : PITCH_SCENARIOS[key];
-  if (!scenario) return;
-  state = { key, scenario, difficulty: state?.difficulty || 'realistic', stage: 'setup', messages: [], status: 'disconnected', mode: 'listening', listeningMs: 0 };
+  scenario ||= key === 'random' ? generateScenario() : key.startsWith('lib:') ? fromLibrary(key.slice(4), opts.intention) : PITCH_SCENARIOS[key];
+  if (!scenario) return false;
+  const onClose = opts.onClose ?? state?.onClose;
+  state = { key, scenario, onClose, difficulty: state?.difficulty || 'realistic', stage: 'setup', messages: [], status: 'disconnected', mode: 'listening', listeningMs: 0 };
   const d = ensureDialog();
   if (!d.open) d.showModal();
   document.body.classList.add('modal-open');
   render();
+  return true;
 }
 
 function render() {
@@ -300,7 +316,7 @@ function render() {
 function renderSetup(s) {
   const cfg = resolveConfig();
   const needsAgent = !cfg.agentId && !cfg.signedUrlEndpoint;
-  return `<div class="vp-kicker">PITCH PRACTICE · VOICE · ${esc(s.number)}</div>
+  return `<div class="vp-kicker">${s.library ? "03 — VOICE PRACTICE" : "PITCH PRACTICE · VOICE"} · ${esc(s.number)}</div>
   <h2 id="vp-title">${esc(s.title)}</h2>
   <p class="vp-lead">${esc(s.summary)} You will speak out loud with an AI buyer in real time. Use headphones for the best experience.</p>
   <div class="vp-grid">
@@ -422,7 +438,7 @@ function renderDebrief(s) {
   </div>
   <details class="vp-full"><summary>Full transcript</summary><div class="vp-transcript">${transcriptHtml()}</div></details>
   <p class="vp-hint" style="margin-top:14px">Debrief is generated locally from the transcript using simple heuristics. It is a prompt for reflection, not an assessment.</p>
-  <div class="vp-actions"><button class="vp-btn" type="button" data-vp-action="retry">Try again</button>${s.random ? `<button class="vp-btn secondary" type="button" data-vp-action="new">🎲 New scenario</button>` : ''}${state.difficulty !== 'tough' ? `<button class="vp-btn secondary" type="button" data-vp-action="harder">Try a tougher buyer</button>` : ''}<button class="vp-btn secondary" type="button" data-vp-action="close">Back to scenarios</button></div>`;
+  <div class="vp-actions"><button class="vp-btn" type="button" data-vp-action="retry">Try again</button>${s.random ? `<button class="vp-btn secondary" type="button" data-vp-action="new">🎲 New scenario</button>` : ''}${state.difficulty !== 'tough' ? `<button class="vp-btn secondary" type="button" data-vp-action="harder">Try a tougher buyer</button>` : ''}<button class="vp-btn secondary" type="button" data-vp-action="close">${state.onClose ? 'Continue to re-assess →' : 'Back to scenarios'}</button></div>`;
 }
 
 async function onDialogClick(e) {
@@ -437,7 +453,7 @@ async function onDialogClick(e) {
   else if (action === 'retry') { open(state.key, returnFocus, state.scenario); }
   else if (action === 'new') { open(state.key, returnFocus); }
   else if (action === 'harder') { state.difficulty = state.difficulty === 'friendly' ? 'realistic' : 'tough'; open(state.key, returnFocus, state.scenario); }
-  else if (action === 'close') $('#voice-dialog').close();
+  else if (action === 'close') closeDialog();
 }
 
 async function getSessionTarget() {
@@ -582,17 +598,12 @@ function stopTicker() {
   state.timer = state.raf = null;
 }
 
-for (const btn of document.querySelectorAll('.scenario-card [data-start]')) {
-  if (!libraryScenarios()[btn.dataset.start] || btn.parentElement.querySelector('[data-voice-start]')) continue;
-  const v = document.createElement('button');
-  v.type = 'button';
-  v.className = 'card-action card-voice';
-  v.dataset.voiceStart = `lib:${btn.dataset.start}`;
-  v.innerHTML = 'Practise by voice <span>🎙</span>';
-  btn.after(v);
-}
-
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-voice-start]');
-  if (b) open(b.dataset.voiceStart, b);
+  if (b) open(b.dataset.voiceStart, b, null, { onClose: null });
 });
+
+// Entry point for the REPS practice loop's "Voice demo" mode (step 03 in demo.html).
+window.REPSVoice = {
+  openScenario: (key, { intention, onClose, trigger } = {}) => open(`lib:${key}`, trigger, null, { intention, onClose }),
+};
