@@ -109,6 +109,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
 @media(max-width:760px){.involvement-grid{grid-template-columns:1fr;margin-top:32px}.involvement-card{min-height:0}.involved-follow{align-items:flex-start;flex-direction:column;margin-top:32px}.involved-follow .button{width:100%}}
 </style>
   
+<link rel="stylesheet" href="pitch-voice.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -139,7 +140,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
   
 
   <section class="section scenario-section container" id="scenarios"><div class="section-heading"><div><div class="eyebrow">WELCOME TO THE PRACTICE ROOM</div><h2>Your world.<br><span class="serif">A little more pressure.</span></h2></div><p>Choose a conversation you recognise. Practise staying clear, curious, and constructive when the other side pushes back.</p></div>
-<div class="scenario-toolbar"><div class="filter-group" role="group" aria-label="Filter scenarios"><button class="active" data-filter="all" aria-pressed="true">All scenarios <span>10</span></button><button data-filter="sales" aria-pressed="false">Sales professionals <span>8</span></button><button data-filter="founder" aria-pressed="false">Founders <span>2</span></button></div></div>
+<div class="scenario-toolbar"><div class="filter-group" role="group" aria-label="Filter scenarios"><button class="active" data-filter="all" aria-pressed="true">All scenarios <span>14</span></button><button data-filter="sales" aria-pressed="false">Sales professionals <span>8</span></button><button data-filter="pitch" aria-pressed="false">Pitch practice · voice <span>4</span></button><button data-filter="founder" aria-pressed="false">Founders <span>2</span></button></div></div>
 
 <div class="scenario-group" data-group="sales">
   <div class="scenario-group-head"><h3>Sales practice</h3><button type="button" class="scenario-more" id="more-sales-scenarios"><span class="scenario-more-label">More scenarios in your selected practice mode</span> <span class="scenario-more-arrow" aria-hidden="true">→</span></button></div>
@@ -155,6 +156,16 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
   </div>
 </div>
 
+<div class="scenario-group" data-group="pitch">
+  <div class="scenario-group-head"><h3>Pitch practice · voice</h3><p class="pitch-group-note">4 exercises · speak out loud with an AI buyer, powered by ElevenLabs</p></div>
+  <div class="scenario-grid">
+    <article class="scenario-card surprise" data-audience="pitch"><div class="card-top"><span class="card-icon">🎲</span><span class="pill voice-pill">VOICE</span></div><span class="scenario-number">00 / SURPRISE PITCH · NEW EVERY TIME</span><h3>Any buyer.<br>Any product.</h3><p>A fresh setup every time: a random business, buyer personality and product to sell. Selling a car elevator to a car dealer? Find the angle and win the next step.</p><div class="skill-tags"><span>Adaptability</span><span>Discovery</span><span>Value on the fly</span></div><button class="card-action" data-voice-start="random">Roll the dice <span>🎲</span></button></article>
+    <article class="scenario-card voice" data-audience="pitch"><div class="card-top"><span class="card-icon">🎙</span><span class="pill voice-pill">VOICE</span></div><span class="scenario-number">01 / ELEVATOR PITCH</span><h3>Sixty seconds<br>with a busy VP.</h3><p>You catch a VP of Sales between meetings. Earn attention fast, connect to their world, and leave with a next step.</p><div class="skill-tags"><span>Hook</span><span>Relevance</span><span>Clear ask</span></div><button class="card-action" data-voice-start="elevator">Start talking <span>🎙</span></button></article>
+    <article class="scenario-card lemon" data-audience="pitch"><div class="card-top"><span class="card-icon">€</span><span class="pill voice-pill">VOICE</span></div><span class="scenario-number">02 / VALUE PITCH TO FINANCE</span><h3>Make the<br>CFO care.</h3><p>The CFO joins late and asks one thing: why should we spend money on this? Translate your pitch into business impact.</p><div class="skill-tags"><span>ROI framing</span><span>Cost of inaction</span><span>Proof</span></div><button class="card-action" data-voice-start="cfo">Start talking <span>🎙</span></button></article>
+    <article class="scenario-card mint" data-audience="pitch"><div class="card-top"><span class="card-icon">⇆</span><span class="pill voice-pill">VOICE</span></div><span class="scenario-number">03 / COMPETITIVE DISPLACEMENT</span><h3>“We already<br>use someone.”</h3><p>The prospect is happy enough with an incumbent. Find the gap they tolerate, differentiate without bashing, and earn a pilot.</p><div class="skill-tags"><span>Discovery</span><span>Differentiation</span><span>Objection handling</span></div><button class="card-action" data-voice-start="displacement">Start talking <span>🎙</span></button></article>
+  </div>
+</div>
+
 <div class="scenario-group" data-group="founder">
   <div class="scenario-group-head"><h3>Founder practice</h3><p>2 exercises · fundraising and strategic control</p></div>
   <div class="scenario-grid">
@@ -162,7 +173,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
     <article class="scenario-card pink" data-audience="founder"><div class="card-top"><span class="card-icon">⇄</span><span class="pill">FOUNDERS</span></div><span class="scenario-number">02 / CONTROL & ALIGNMENT</span><h3>Protect the vision.<br>Keep the dialogue.</h3><p>A prospective partner wants approval rights over everyday decisions. Explore safeguards without giving away your ability to act.</p><div class="skill-tags"><span>Interests & boundaries</span><span>Options</span></div><button class="card-action" data-start="control">Step into the room <span>↗</span></button></article>
   </div>
 </div>
-<p class="scenario-note">Choose Guided demo for response options or Free-text demo to type your replies. Both use scripted, locally simulated responses and feedback.</p></section>
+<p class="scenario-note">Choose Guided demo for response options or Free-text demo to type your replies. Both use scripted, locally simulated responses and feedback. Pitch practice is a live voice conversation with an ElevenLabs AI agent and needs microphone access.</p></section>
 
   <section class="section loop-section" id="how-it-works"><div class="container"><div class="loop-toggle" role="group" aria-label="Explore Demo or Platform"><button class="active" data-loop="demo" aria-pressed="true">Demo</button><button data-loop="platform" aria-pressed="false">Platform</button></div></div><div id="loop-demo"><div class="container"><div class="section-heading"><div><div class="eyebrow">THE REPS DEMO LOOP</div><h2>From knowing.<br><span class="serif">To doing under pressure.</span></h2></div><p>Notice the habit, choose one behavioural intention, practise, get evidence-based feedback and repeat.</p></div><div class="loop-grid"><article class="loop-card"><span>01</span><h3>Baseline</h3><p>Notice the behaviour you want to improve before you enter the room.</p></article><article class="loop-card"><span>02</span><h3>Set intention</h3><p>Choose one observable move to practise instead of trying to improve everything.</p></article><article class="loop-card"><span>03</span><h3>Simulate</h3><p>Respond to a counterpart whose priorities are not the same as yours.</p></article><article class="loop-card"><span>04</span><h3>Debrief & repeat</h3><p>Connect feedback to specific choices, then make the next rep more deliberate.</p></article></div></div></div><div id="loop-platform" hidden>
     <div class="container">
@@ -415,5 +426,8 @@ $$('[data-loop]').forEach(b=>b.addEventListener('click',()=>{
  $('#loop-demo').hidden=b.dataset.loop!=='demo';$('#loop-platform').hidden=b.dataset.loop!=='platform';
 }));
 showLearningStep(0);
-</script></body>
+</script>
+<script src="voice-config.js"></script>
+<script type="module" src="pitch-voice.js"></script>
+</body>
 </html>
