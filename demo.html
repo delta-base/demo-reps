@@ -109,7 +109,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
 @media(max-width:760px){.involvement-grid{grid-template-columns:1fr;margin-top:32px}.involvement-card{min-height:0}.involved-follow{align-items:flex-start;flex-direction:column;margin-top:32px}.involved-follow .button{width:100%}}
 </style>
 <style>
-.mode-toggle{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mode-toggle{grid-template-columns:repeat(2,minmax(0,1fr))}
 .mode-toggle button{padding-inline:4px}
 .mode-tile{width:300px}
 #voice-workflow-dialog{width:min(1120px,94vw);height:min(850px,92vh);max-width:none;max-height:none;padding:0;border:0;border-radius:16px;box-shadow:0 24px 90px #0b183b55}
@@ -117,6 +117,8 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
 .voice-workflow-header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #dce3ed;font:700 .86rem system-ui,sans-serif}
 #close-voice-workflow{border:0;background:transparent;font-size:1.6rem;line-height:1;cursor:pointer}
 #voice-workflow-frame{display:block;width:100%;height:calc(100% - 52px);border:0;background:#fff}
+.scenario-create-action{margin:-22px 0 26px}
+.scenario-create-action .button{display:inline-flex;align-items:center;gap:12px}
 </style>
   
 <link rel="stylesheet" href="pitch-voice.css">
@@ -150,6 +152,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
   
 
   <section class="section scenario-section container" id="scenarios"><div class="section-heading"><div><div class="eyebrow">WELCOME TO THE PRACTICE ROOM</div><h2>Your world.<br><span class="serif">A little more pressure.</span></h2></div><p>Choose a conversation you recognise. Practise staying clear, curious, and constructive when the other side pushes back.</p></div>
+<div class="scenario-create-action"><a class="button button-outline" href="voice.html">Create your own scenario <span aria-hidden="true">↗</span></a></div>
 <div class="scenario-toolbar"><div class="filter-group" role="group" aria-label="Filter scenarios"><button class="active" data-filter="all" aria-pressed="true">All scenarios <span>14</span></button><button data-filter="sales" aria-pressed="false">Sales professionals <span>8</span></button><button data-filter="pitch" aria-pressed="false">Pitch practice · voice <span>4</span></button><button data-filter="founder" aria-pressed="false">Founders <span>2</span></button></div></div>
 
 <div class="scenario-group" data-group="sales">
@@ -183,7 +186,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
     <article class="scenario-card pink" data-audience="founder"><div class="card-top"><span class="card-icon">⇄</span><span class="pill">FOUNDERS</span></div><span class="scenario-number">02 / CONTROL & ALIGNMENT</span><h3>Protect the vision.<br>Keep the dialogue.</h3><p>A prospective partner wants approval rights over everyday decisions. Explore safeguards without giving away your ability to act.</p><div class="skill-tags"><span>Interests & boundaries</span><span>Options</span></div><button class="card-action" data-start="control">Step into the room <span>↗</span></button></article>
   </div>
 </div>
-<p class="scenario-note">Choose Guided demo for response options or Free-text demo to type your replies. Both use scripted, locally simulated responses and feedback. Pitch practice is a live voice conversation with an ElevenLabs AI agent and needs microphone access.</p></section>
+<p class="scenario-note">Choose Text to practise with scripted replies, or Voice to speak with an ElevenLabs buyer. Every scenario card supports voice practice.</p></section>
 
   <section class="section loop-section" id="how-it-works"><div class="container"><div class="loop-toggle" role="group" aria-label="Explore Demo or Platform"><button class="active" data-loop="demo" aria-pressed="true">Demo</button><button data-loop="platform" aria-pressed="false">Platform</button></div></div><div id="loop-demo"><div class="container"><div class="section-heading"><div><div class="eyebrow">THE REPS DEMO LOOP</div><h2>From knowing.<br><span class="serif">To doing under pressure.</span></h2></div><p>Notice the habit, choose one behavioural intention, practise, get evidence-based feedback and repeat.</p></div><div class="loop-grid"><article class="loop-card"><span>01</span><h3>Baseline</h3><p>Notice the behaviour you want to improve before you enter the room.</p></article><article class="loop-card"><span>02</span><h3>Set intention</h3><p>Choose one observable move to practise instead of trying to improve everything.</p></article><article class="loop-card"><span>03</span><h3>Simulate</h3><p>Respond to a counterpart whose priorities are not the same as yours.</p></article><article class="loop-card"><span>04</span><h3>Debrief & repeat</h3><p>Connect feedback to specific choices, then make the next rep more deliberate.</p></article></div></div></div><div id="loop-platform" hidden>
     <div class="container">
@@ -233,7 +236,7 @@ body.onboarding-open #main,body.onboarding-open>footer,body.scan-open #main,body
 
 
 
-<aside class="mode-tile" aria-label="Practice mode"><div class="mode-tile-head"><strong>CHOOSE PRACTICE MODE</strong><span class="live-dot" aria-hidden="true"></span></div><div class="mode-toggle" role="group" aria-label="Practice mode"><button type="button" data-mode="demo" aria-pressed="false">Guided demo</button><button type="button" class="active" data-mode="prototype" aria-pressed="true">Free-text demo</button><button type="button" data-mode="voice-demo" aria-pressed="false">Voice demo</button><button type="button" data-mode="voice" aria-pressed="false">Voice</button></div><p id="mode-help">Free-text conversation with an adaptive counterpart and evidence-based coaching.</p></aside>
+<aside class="mode-tile" aria-label="Practice mode"><div class="mode-tile-head"><strong>CHOOSE PRACTICE MODE</strong><span class="live-dot" aria-hidden="true"></span></div><div class="mode-toggle" role="group" aria-label="Practice mode"><button type="button" class="active" data-mode="prototype" aria-pressed="true">Text</button><button type="button" data-mode="voice" aria-pressed="false">Voice</button></div><p id="mode-help">Choose Text to type or Voice to speak with an AI buyer.</p></aside>
 <script>
 const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const escapeHtml=s=>String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -296,21 +299,21 @@ const voiceWorkflowDialog=$('#voice-workflow-dialog');
 function openVoiceWorkflow(){if(!voiceWorkflowDialog.open)voiceWorkflowDialog.showModal()}
 function closeVoiceWorkflow(){if(voiceWorkflowDialog.open)voiceWorkflowDialog.close()}
 $('#close-voice-workflow').addEventListener('click',closeVoiceWorkflow);voiceWorkflowDialog.addEventListener('click',e=>{if(e.target===voiceWorkflowDialog)closeVoiceWorkflow()});
-let experienceMode='demo';
+let experienceMode='prototype';
 let demo={key:'margin',stage:'setup',baseline:null,intention:0,turn:0,choices:[],history:[],startedAt:null,duration:0,reassessment:null,waiting:false};let timer=null;let returnFocus=null;
 const rateLabels=['Rarely','At times','Often','Usually','Always'];
 const formatTime=seconds=>Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
 function stopTimer(){if(timer){clearInterval(timer);timer=null}}
 function startTimer(){stopTimer();timer=setInterval(()=>{if($('#elapsed')&&demo.startedAt)$('#elapsed').textContent=formatTime(Math.floor((Date.now()-demo.startedAt)/1000));},1000)}
 function ratingGroup(name,selected){return `<div class="rating-group">${rateLabels.map((l,i)=>`<label><input type="radio" name="${name}" value="${i+1}" ${Number(selected)===i+1?'checked':''} required><span>${i+1}<small>${l}</small></span></label>`).join('')}</div>`}
-function syncModeUI(){$$('[data-mode]').forEach(b=>{const active=b.dataset.mode===experienceMode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false')});$('#mode-help').textContent=experienceMode==='prototype'?'Three free-text turns with locally simulated responses and feedback.':experienceMode==='voice'?'Voice practice selected. Opening the live voice app workflow.':experienceMode==='voice-demo'?'Scripted practice with the ElevenLabs voice app workflow at step 03.':'Guided three-choice practice with scripted feedback.';$('#practice-mode-label').textContent=experienceMode==='prototype'?'FREE-TEXT DEMO':experienceMode==='voice'?'VOICE':experienceMode==='voice-demo'?'VOICE DEMO':'GUIDED DEMO';$('#practice-mode-note').textContent='Scripted demo · simulated locally · no network calls'}
-function setMode(mode){if(!['demo','prototype','voice','voice-demo'].includes(mode)||mode===experienceMode)return;experienceMode=mode;resetDemo();syncModeUI();if(dialog.open)renderDemo()}
-$$('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='voice'){window.location.href='voice.html';return}setMode(b.dataset.mode)}));syncModeUI();
+function syncModeUI(){$$('[data-mode]').forEach(b=>{const active=b.dataset.mode===experienceMode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false')});$('#mode-help').textContent=experienceMode==='voice'?'Choose any scenario and use Practise by voice to start its live ElevenLabs roleplay.':'Choose a scenario and type your replies in the scripted practice.';$('#practice-mode-label').textContent=experienceMode==='voice'?'VOICE':'TEXT';$('#practice-mode-note').textContent=experienceMode==='voice'?'Live voice roleplay · ElevenLabs':'Scripted demo · simulated locally · no network calls'}
+function setMode(mode){if(!['prototype','voice'].includes(mode)||mode===experienceMode)return;experienceMode=mode;resetDemo();syncModeUI();if(dialog.open)renderDemo()}
+$$('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));syncModeUI();
 function wrapDemo(html,percent){$('#demo-content').innerHTML='<div class="demo-inner">'+html+'</div>';$('.demo-progress span').style.width=percent+'%';syncModeUI();const h=$('#practice-title');if(h){h.tabIndex=-1;h.focus({preventScroll:true})}dialog.scrollTop=0}
 function resetDemo(key=demo.key){stopTimer();demo={key,stage:'setup',baseline:null,intention:0,turn:0,choices:[],history:[],startedAt:null,duration:0,reassessment:null,waiting:false}}
 function openDemo(key,trigger){returnFocus=trigger||document.activeElement;if(key!==demo.key)resetDemo(key);dialog.showModal();document.body.classList.add('modal-open');renderDemo()}
 function closeDemo(){dialog.close()}
-dialog.addEventListener('close',()=>{stopTimer();document.body.classList.remove('modal-open');if(returnFocus?.isConnected)returnFocus.focus()});$('.close-dialog').addEventListener('click',closeDemo);$('.modal-header .brand').addEventListener('click',e=>{e.preventDefault();closeDemo()});document.addEventListener('click',e=>{const b=e.target.closest('[data-start]');if(b)openDemo(b.dataset.start,b)});$('#demo-reset').addEventListener('click',()=>{resetDemo();renderDemo()});
+dialog.addEventListener('close',()=>{stopTimer();document.body.classList.remove('modal-open');if(returnFocus?.isConnected)returnFocus.focus()});$('.close-dialog').addEventListener('click',closeDemo);$('.modal-header .brand').addEventListener('click',e=>{e.preventDefault();closeDemo()});document.addEventListener('click',e=>{const b=e.target.closest('[data-start]');if(!b)return;if(experienceMode==='voice'&&b.closest('.scenario-card')){const voiceButton=b.parentElement.querySelector('[data-voice-start]');if(voiceButton){voiceButton.click();return}}openDemo(b.dataset.start,b)});$('#demo-reset').addEventListener('click',()=>{resetDemo();renderDemo()});
 function attemptScore(){return demo.choices.length?Math.round(demo.choices.reduce((sum,c)=>sum+c.quality,0)/(demo.choices.length*2)*100):0}
 function bestChoice(){return demo.choices.reduce((best,c,i)=>!best||c.quality>best.c.quality?{c,i}:best,null)}
 function weakestChoice(){return demo.choices.reduce((w,c,i)=>!w||c.quality<w.c.quality?{c,i}:w,null)}
