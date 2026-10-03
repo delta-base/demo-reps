@@ -23,6 +23,14 @@ textarea,input[type=text]{width:100%;border:1px solid #c9ccd5;border-radius:13px
 .summary{border-top:1px solid var(--line)}.summary-item{display:grid;grid-template-columns:170px 1fr;gap:24px;padding:22px 0;border-bottom:1px solid var(--line)}.summary-label{color:var(--navy);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.summary-value{white-space:pre-wrap;font-size:14px;line-height:1.6}.summary-objections{display:grid;gap:7px}.summary-objection{padding:10px 12px;border-radius:9px;background:#f7f8fa;font-size:13px}.note{margin-top:30px;padding:17px 19px;border-radius:13px;background:#f7f8fc;color:var(--muted);font-size:12px;line-height:1.6}
 .voice{text-align:center;padding:25px 0 8px}.orb{width:104px;height:104px;margin:8px auto 28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#33379b,var(--navy));display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 0 0 14px rgba(9,11,82,.045),0 20px 55px rgba(9,11,82,.16)}.orb.speaking{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{transform:scale(1.05);box-shadow:0 0 0 22px rgba(9,11,82,.05),0 24px 65px rgba(9,11,82,.18)}}.orb svg{width:32px}.voice h2{margin:0;color:var(--navy);font-size:34px;letter-spacing:-.03em}.status{margin-top:10px;color:var(--muted);font-size:14px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#b8bac3;margin-right:7px}.dot.connected{background:var(--green)}.dot.error{background:var(--red)}.session-info{max-width:650px;margin:40px auto 0;padding:20px;border:1px solid var(--line);border-radius:15px;text-align:left}.session-info-title{margin-bottom:6px;color:var(--navy);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.session-info p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}.session-actions{display:flex;justify-content:center;gap:10px;margin-top:30px}.alert{display:none;max-width:650px;margin:22px auto 0;padding:14px 16px;border:1px solid #ecc9c2;border-radius:12px;background:#fff4f1;color:var(--red);text-align:left;font-size:12px;line-height:1.5}.alert.show{display:block}
 @media(max-width:720px){.app{width:calc(100% - 24px);padding-top:38px}.header{margin-bottom:38px}.header p{font-size:15px}.progress-step span:last-child{display:none}.progress-line{width:25px}.panel{padding:25px 19px;border-radius:19px}.form-grid{grid-template-columns:1fr;gap:27px}.field.full{grid-column:auto}.summary-item{grid-template-columns:1fr;gap:7px}.actions{flex-direction:column-reverse;align-items:stretch}.buttons{width:100%;display:grid;grid-template-columns:1fr}.btn{width:100%}.session-actions{flex-direction:column}.session-actions .btn{width:100%}}
+
+.transcript{display:flex;flex-direction:column;gap:9px;max-height:340px;min-height:120px;overflow:auto;margin:22px auto 0;max-width:640px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff;text-align:left}
+.transcript:empty:before{content:attr(data-empty);margin:auto;color:var(--muted);font-size:13px}
+.msg{max-width:85%;padding:9px 13px;border-radius:13px;border:1px solid var(--line);background:#f7f8fb;font-size:14px;line-height:1.5}
+.msg small{display:block;margin-bottom:2px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.1em}
+.msg.you{align-self:flex-end;background:#eef0ff;border-color:#d6d9f5}
+.chat-form{display:flex;gap:9px;max-width:640px;margin:12px auto 0}.chat-form input{flex:1}
+body.embedded .app{padding-top:28px}body.embedded .header{margin-bottom:28px}
 </style>
 </head>
 <body>
@@ -87,12 +95,15 @@ textarea,input[type=text]{width:100%;border:1px solid #c9ccd5;border-radius:13px
     <div class="alert" id="alert" role="alert"></div>
     <div class="session-info"><div class="session-info-title">Your scenario</div><p id="desc"></p></div>
     <div class="session-actions"><button class="btn primary" id="mic" type="button">Start microphone</button><button class="btn danger" id="stop" type="button" disabled>End roleplay</button></div>
+    <div class="transcript" id="transcript" aria-live="polite" data-empty="The conversation transcript appears here."></div>
+    <form class="chat-form" id="chatForm" hidden><input type="text" id="chatInput" autocomplete="off" placeholder="Type your reply and press Enter" aria-label="Your reply" disabled><button class="btn primary" type="submit" id="chatSend" disabled>Send</button></form>
   </div>
   <div class="actions"><div class="buttons"><button class="btn secondary" id="back" type="button">← Back to scenario</button></div></div>
 </div>
 </section>
 </main>
 
+<script src="voice-config.js"></script>
 <script type="module">
 /*
   REPS / ElevenLabs integration
@@ -113,10 +124,15 @@ textarea,input[type=text]{width:100%;border:1px solid #c9ccd5;border-radius:13px
       browser <- temporary signed URL / conversation token
 */
 
+// Agent settings come from demo-reps/.env through voice-server.mjs (window.REPS_VOICE_CONFIG),
+// or from ?agent=agent_... in the URL. See VOICE-PITCH.md.
+const PARAMS = new URLSearchParams(location.search);
+const VOICE_CFG = window.REPS_VOICE_CONFIG || {};
+const TEXT_MODE = PARAMS.get("mode") === "text";
 const CONFIG = {
-  AGENT_ID: "YOUR_AGENT_ID",
-  AUTH_MODE: "public",
-  SIGNED_URL_ENDPOINT: "/api/elevenlabs/signed-url",
+  AGENT_ID: PARAMS.get("agent") || VOICE_CFG.agentId || "",
+  AUTH_MODE: VOICE_CFG.signedUrlEndpoint && !PARAMS.get("agent") ? "signed-url" : "public",
+  SIGNED_URL_ENDPOINT: VOICE_CFG.signedUrlEndpoint || "/api/voice/signed-url",
   CONVERSATION_TOKEN_ENDPOINT: "/api/elevenlabs/conversation-token",
   ELEVENLABS_API_KEY: "", // DO NOT use a production key here
   STORAGE_KEY: "reps-roleplay-v1",
@@ -295,48 +311,42 @@ BEHAVIOUR:
 - Reveal useful information when earned through good questions.
 - Use tradables only when there is a reason to trade.
 - Respect non-negotiables.
-- Keep answers concise and natural for voice.
-- Never switch into coaching mode.
-
-Dynamic variables:
-Context: {{context}}
-Storyline: {{storyline}}
-Challenge: {{challenge}}
-Intention: {{intention}}
-Tradables: {{tradables}}
-Non-negotiables: {{non_negotiables}}
-Objections: {{objections}}`;
+- Keep answers concise and natural${TEXT_MODE?" for a chat: 1 to 3 sentences":" for voice"}.
+- Never switch into coaching mode.`;
 }
 function firstMessage(){return "Thanks for making the time. I have about thirty minutes, so let's get straight into it. What would you like to discuss?";}
 
 async function startSession(){
   if(conversation)return;
   clearError();
-  if(!CONFIG.AGENT_ID||CONFIG.AGENT_ID==="YOUR_AGENT_ID"){setStatus("error","Agent configuration required");error("Add your ElevenLabs AGENT_ID at the top of this file before starting a live session.");return}
+  if(!CONFIG.AGENT_ID&&CONFIG.AUTH_MODE!=="signed-url"){setStatus("error","Agent configuration required");error("No ElevenLabs agent configured. Put ELEVENLABS_AGENT_ID in demo-reps/.env and start the site with node voice-server.mjs, or open this page with ?agent=agent_...");return}
+  $("transcript").replaceChildren();
   try{
-    setStatus("connecting","Requesting microphone access…");
-    if(navigator.mediaDevices?.getUserMedia){
+    setStatus("connecting",TEXT_MODE?"Connecting…":"Requesting microphone access…");
+    if(!TEXT_MODE&&navigator.mediaDevices?.getUserMedia){
       const s=await navigator.mediaDevices.getUserMedia({audio:true});
       s.getTracks().forEach(t=>t.stop());
     }
-    const {Conversation}=await import("https://cdn.jsdelivr.net/npm/@elevenlabs/client/+esm");
-    const dynamicVariables={
-      context:data.context,storyline:data.storyline,challenge:data.challenge,intention:data.intention,
-      tradables:data.tradables||"None specified",non_negotiables:data.nonNegotiables||"None specified",
-      objections:data.objections.join("\n")||"No specific objections configured."
-    };
+    const {Conversation}=await import("https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/+esm");
     const options={
       agentId:CONFIG.AGENT_ID,
-      dynamicVariables,
-      overrides:{agent:{prompt:{prompt:promptText()},firstMessage:firstMessage()}},
-      onConnect(){setStatus("connected","Connected · listening");$("mic").disabled=true;$("stop").disabled=false},
-      onDisconnect(){conversation=null;$("orb").classList.remove("speaking");setStatus("disconnected","Session ended");$("mic").disabled=false;$("stop").disabled=true},
-      onStatusChange({status}){if(status==="connecting")setStatus("connecting","Connecting…");if(status==="connected")setStatus("connected","Connected · listening");if(status==="disconnected")setStatus("disconnected","Disconnected")},
-      onModeChange({mode}){if(mode==="speaking"){$("orb").classList.add("speaking");setStatus("connected","Buyer is speaking")}else{$("orb").classList.remove("speaking");setStatus("connected","Listening")}},
+      textOnly:TEXT_MODE,
+      overrides:{agent:{prompt:{prompt:promptText()},firstMessage:firstMessage()},...(TEXT_MODE?{conversation:{textOnly:true}}:{})},
+      onConnect(){setStatus("connected",TEXT_MODE?"Connected · your turn to type":"Connected · listening");$("mic").disabled=true;$("stop").disabled=false;setChat(true)},
+      onDisconnect(details={}){
+        conversation=null;$("orb").classList.remove("speaking");$("mic").disabled=false;$("stop").disabled=true;setChat(false);
+        const why=details.closeReason||details.message||"";
+        if(details.reason==="user"||!why){setStatus("disconnected","Session ended");return}
+        setStatus("error","Session closed by ElevenLabs");
+        error(/override/i.test(why)?`ElevenLabs rejected the session: "${why}" Enable the "First message" and "System prompt"${TEXT_MODE?' and "Text only"':""} overrides in the agent's Security settings.`:`ElevenLabs closed the session: "${why}"`);
+      },
+      onStatusChange({status}){if(status==="connecting")setStatus("connecting","Connecting…");if(status==="connected")setStatus("connected",TEXT_MODE?"Connected · your turn to type":"Connected · listening");if(status==="disconnected")setStatus("disconnected","Disconnected")},
+      onModeChange({mode}){if(TEXT_MODE)return;if(mode==="speaking"){$("orb").classList.add("speaking");setStatus("connected","Buyer is speaking")}else{$("orb").classList.remove("speaking");setStatus("connected","Listening")}},
+      onMessage(m){const who=(m.role||m.source)==="user"?"you":"buyer";if(TEXT_MODE&&who==="you")return;addMsg(who,m.message)},
       onError(e){console.error(e);setStatus("error","Connection error");error("The live roleplay could not be started. Check the ElevenLabs agent configuration and Security settings.")}
     };
     if(CONFIG.AUTH_MODE==="signed-url"){
-      const r=await fetch(CONFIG.SIGNED_URL_ENDPOINT,{credentials:"include"});if(!r.ok)throw Error("Signed URL request failed");options.signedUrl=await r.text();delete options.agentId;
+      const r=await fetch(CONFIG.SIGNED_URL_ENDPOINT,{credentials:"include"});if(!r.ok)throw Error("Signed URL request failed");const body=await r.text();try{options.signedUrl=JSON.parse(body).signed_url}catch{options.signedUrl=body}delete options.agentId;
     }
     if(CONFIG.AUTH_MODE==="conversation-token"){
       const r=await fetch(CONFIG.CONVERSATION_TOKEN_ENDPOINT,{credentials:"include"});if(!r.ok)throw Error("Conversation token request failed");options.conversationToken=await r.text();delete options.agentId;
@@ -346,13 +356,24 @@ async function startSession(){
     console.error(e);conversation=null;$("mic").disabled=false;$("stop").disabled=true;
     setStatus("error","Could not start roleplay");
     if(String(e?.message).toLowerCase().includes("permission"))error("Microphone access was denied. Allow microphone access for this page, then try again.");
-    else error("The live roleplay could not be started. Check your ElevenLabs configuration, agent ID, and browser permissions.");
+    else error(`The live roleplay could not be started: ${e?.message||e}. Check your ElevenLabs configuration, agent ID, and browser permissions.`);
   }
 }
 async function stopSession(){
   if(!conversation)return;
-  try{await conversation.endSession()}catch(e){console.error(e)}finally{conversation=null;$("orb").classList.remove("speaking");$("mic").disabled=false;$("stop").disabled=true;setStatus("disconnected","Session ended")}
+  try{await conversation.endSession()}catch(e){console.error(e)}finally{conversation=null;$("orb").classList.remove("speaking");$("mic").disabled=false;$("stop").disabled=true;setChat(false);setStatus("disconnected","Session ended")}
 }
+function addMsg(who,text){
+  if(!String(text||"").trim())return;
+  const el=document.createElement("div");el.className="msg"+(who==="you"?" you":"");
+  el.innerHTML=`<small>${who==="you"?"YOU":"BUYER"}</small>${esc(text)}`;
+  $("transcript").appendChild(el);$("transcript").scrollTop=$("transcript").scrollHeight;
+}
+function setChat(on){if(!TEXT_MODE)return;$("chatInput").disabled=!on;$("chatSend").disabled=!on;if(on)$("chatInput").focus()}
+$("chatForm").addEventListener("submit",e=>{
+  e.preventDefault();const text=$("chatInput").value.trim();if(!text||!conversation)return;
+  addMsg("you",text);conversation.sendUserMessage(text);$("chatInput").value="";
+});
 
 ids.forEach(id=>$(id).addEventListener("input",()=>{$(id).closest(".field").classList.remove("invalid");read()}));
 load();renderObjections();
@@ -366,6 +387,19 @@ $("scenarioSource").addEventListener("change",()=>{
   else putScenario(ownDraft||data);
 });
 $("libraryScenario").addEventListener("change",()=>putScenario(selectedLibraryScenario()));
+if(PARAMS.get("embedded"))document.body.classList.add("embedded");
+if(TEXT_MODE){
+  document.querySelector(".eyebrow").textContent="REPS · AI roleplay · Text";
+  document.querySelector("#practice h2").textContent="Live chat roleplay";
+  $("mic").textContent="Start conversation";
+  $("chatForm").hidden=false;
+  document.querySelector("#confirm .note").innerHTML="<strong>What happens next?</strong><br>Your confirmed scenario is passed to the ElevenLabs agent as the buyer's roleplay context. You chat in text; the buyer stays in character and uses the configured objections naturally.";
+}
+const presetKey=PARAMS.get("scenario");
+if(PARAMS.get("source")==="library"&&presetKey&&libraryScenarios[presetKey]){
+  $("scenarioSource").value="library";$("libraryChoice").hidden=false;
+  $("libraryScenario").value=`preset:${presetKey}`;putScenario(selectedLibraryScenario());
+}
 </script>
 </body>
 </html>
