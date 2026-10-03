@@ -267,6 +267,7 @@ function ensureDialog() {
   d.querySelector('.vp-close').addEventListener('click', closeDialog);
   d.addEventListener('close', handleClosed); // Esc key
   d.addEventListener('click', onDialogClick);
+  d.addEventListener('submit', e => { if (e.target.id === 'vp-chat') sendChat(e); });
   return d;
 }
 
@@ -288,15 +289,19 @@ async function handleClosed() {
   onClose?.({ spoke });
 }
 
+const practiceChannel = () => (window.REPSPractice?.channel === 'text' ? 'text' : 'voice');
+
 function open(key, trigger, scenario, opts = {}) {
   returnFocus = trigger || document.activeElement;
   scenario ||= key === 'random' ? generateScenario() : key.startsWith('lib:') ? fromLibrary(key.slice(4), opts.intention) : PITCH_SCENARIOS[key];
   if (!scenario) return false;
   const onClose = opts.onClose ?? state?.onClose;
-  state = { key, scenario, onClose, difficulty: state?.difficulty || 'realistic', stage: 'setup', messages: [], status: 'disconnected', mode: 'listening', listeningMs: 0 };
+  const text = opts.channel ? opts.channel === 'text' : practiceChannel() === 'text';
+  state = { key, scenario, onClose, text, difficulty: state?.difficulty || 'realistic', stage: 'setup', messages: [], status: 'disconnected', mode: 'listening', listeningMs: 0 };
   const d = ensureDialog();
   if (!d.open) d.showModal();
   document.body.classList.add('modal-open');
+  $('#voice-dialog .vp-badge').textContent = state.text ? 'TEXT ROLEPLAY · ELEVENLABS' : 'VOICE PITCH · ELEVENLABS';
   render();
   return true;
 }
@@ -318,7 +323,7 @@ function renderSetup(s) {
   const needsAgent = !cfg.agentId && !cfg.signedUrlEndpoint;
   return `<div class="vp-kicker">${s.library ? "03 — VOICE PRACTICE" : "PITCH PRACTICE · VOICE"} · ${esc(s.number)}</div>
   <h2 id="vp-title">${esc(s.title)}</h2>
-  <p class="vp-lead">${esc(s.summary)} You will speak out loud with an AI buyer in real time. Use headphones for the best experience.</p>
+  <p class="vp-lead">${esc(s.summary)} ${state.text ? 'You will chat in text with an AI buyer in real time.' : 'You will speak out loud with an AI buyer in real time. Use headphones for the best experience.'}</p>
   <div class="vp-grid">
     ${s.random ? renderBriefEditor(s.brief) : `<div class="vp-card">
       <div class="vp-persona"><span class="vp-avatar">${esc(s.persona.initials)}</span><div><strong>${esc(s.persona.name)}</strong><small>${esc(s.persona.role)}</small></div></div>
@@ -339,8 +344,8 @@ function renderSetup(s) {
   </div>
   ${state.error ? `<div class="vp-error" role="alert">${esc(state.error)}</div>` : ''}
   <div class="vp-actions">
-    <button class="vp-btn" type="button" data-vp-action="start" ${needsAgent ? 'data-needs-agent' : ''}>🎙 Start the call</button>
-    <span class="vp-hint" style="margin:0">Your browser will ask for microphone access.</span>
+    <button class="vp-btn" type="button" data-vp-action="start" ${needsAgent ? 'data-needs-agent' : ''}>${state.text ? '💬 Start the chat' : '🎙 Start the call'}</button>
+    <span class="vp-hint" style="margin:0">${state.text ? 'Type your replies; the buyer answers in text.' : 'Your browser will ask for microphone access.'}</span>
   </div>`;
 }
 
@@ -367,7 +372,7 @@ function readBrief() {
 }
 
 function renderLive(s) {
-  return `<div class="vp-kicker">LIVE CALL · ${esc(DIFFICULTY[state.difficulty].label.toUpperCase())} BUYER</div>
+  return `<div class="vp-kicker">${state.text ? 'LIVE CHAT' : 'LIVE CALL'} · ${esc(DIFFICULTY[state.difficulty].label.toUpperCase())} BUYER</div>
   <h2 id="vp-title">${esc(s.title)}</h2>
   <div class="vp-objective">${esc(s.objective)}</div>
   <div class="vp-live">
@@ -376,17 +381,21 @@ function renderLive(s) {
       <div class="vp-state" id="vp-state" role="status" aria-live="polite">${stateLabel()}</div>
       <div class="vp-timer" id="vp-timer">00:00</div>
       <div class="vp-stage-actions">
-        <button class="vp-btn secondary" type="button" data-vp-action="mute" aria-pressed="${!!state.muted}">${state.muted ? 'Unmute' : 'Mute'}</button>
-        <button class="vp-btn danger" type="button" data-vp-action="end">End call & debrief</button>
+        ${state.text ? '' : `<button class="vp-btn secondary" type="button" data-vp-action="mute" aria-pressed="${!!state.muted}">${state.muted ? 'Unmute' : 'Mute'}</button>`}
+        <button class="vp-btn danger" type="button" data-vp-action="end">${state.text ? 'End chat & debrief' : 'End call & debrief'}</button>
       </div>
     </div>
-    <div class="vp-transcript" id="vp-transcript" aria-label="Live transcript"></div>
+    <div>
+      <div class="vp-transcript" id="vp-transcript" aria-label="Live transcript"></div>
+      ${state.text ? `<form class="vp-chat" id="vp-chat"><input id="vp-chat-input" type="text" autocomplete="off" placeholder="Type your reply and press Enter" aria-label="Your reply" ${state.status === 'connected' ? '' : 'disabled'}><button class="vp-btn" type="submit">Send</button></form>` : ''}
+    </div>
   </div>`;
 }
 
 function stateLabel() {
   if (state.status === 'connecting') return 'CONNECTING…';
-  if (state.status !== 'connected') return 'CALL ENDED';
+  if (state.status !== 'connected') return state.text ? 'CHAT ENDED' : 'CALL ENDED';
+  if (state.text) return 'YOUR TURN · TYPE A REPLY';
   return state.mode === 'speaking' ? `${state.scenario.persona.name.split(' ')[0].toUpperCase()} IS SPEAKING` : 'YOUR TURN · LISTENING';
 }
 
@@ -409,6 +418,8 @@ function syncLiveState() {
   stage.dataset.status = state.status;
   stage.dataset.mode = state.mode;
   $('#vp-state').textContent = stateLabel();
+  const input = $('#vp-chat-input');
+  if (input) { input.disabled = state.status !== 'connected'; if (!input.disabled) input.focus(); }
 }
 
 function renderDebrief(s) {
@@ -427,7 +438,7 @@ function renderDebrief(s) {
   <div class="vp-metrics">
     ${metric(a.talkShare + '%', 'your share of the talking', a.talkShare > 65 ? 'Talking too much, ask more' : a.talkShare < 30 ? 'Say more about value' : 'Healthy balance', a.talkShare <= 65 && a.talkShare >= 30)}
     ${metric(a.questions, 'questions you asked', a.questions >= 3 ? 'Curious' : 'Ask more questions', a.questions >= 3)}
-    ${metric(a.wpm || '–', 'words per minute (est.)', a.wpm ? (a.wpm > 175 ? 'Slow down a little' : a.wpm < 110 ? 'Add some energy' : 'Comfortable pace') : '', a.wpm >= 110 && a.wpm <= 175)}
+    ${state.text ? metric(a.userTurns.length, 'messages you sent', a.longest > 60 ? 'Shorter messages land better' : 'Concise', a.longest <= 60) : metric(a.wpm || '–', 'words per minute (est.)', a.wpm ? (a.wpm > 175 ? 'Slow down a little' : a.wpm < 110 ? 'Add some energy' : 'Comfortable pace') : '', a.wpm >= 110 && a.wpm <= 175)}
     ${metric(a.fillers.length, 'filler words heard', a.fillers.length > 4 ? 'Pause instead of filling' : 'Clean delivery', a.fillers.length <= 4)}
   </div>
   ${s.intentions ? `<div class="vp-card" style="margin-top:22px"><h3>The behaviours this scenario trains</h3><p class="vp-hint">Compare these with your transcript below. Did you make each move?</p><ul>${s.intentions.map(i => `<li><strong>${esc(i.label)}</strong> For example: ${esc(i.example)}</li>`).join('')}</ul></div>` : ''}
@@ -441,6 +452,17 @@ function renderDebrief(s) {
   <div class="vp-actions"><button class="vp-btn" type="button" data-vp-action="retry">Try again</button>${s.random ? `<button class="vp-btn secondary" type="button" data-vp-action="new">🎲 New scenario</button>` : ''}${state.difficulty !== 'tough' ? `<button class="vp-btn secondary" type="button" data-vp-action="harder">Try a tougher buyer</button>` : ''}<button class="vp-btn secondary" type="button" data-vp-action="close">${state.onClose ? 'Continue to re-assess →' : 'Back to scenarios'}</button></div>`;
 }
 
+function sendChat(e) {
+  e.preventDefault();
+  const input = $('#vp-chat-input');
+  const text = input?.value.trim();
+  if (!text || !state.conversation) return;
+  state.messages.push({ who: 'you', text });
+  state.conversation.sendUserMessage(text);
+  input.value = '';
+  renderTranscript();
+}
+
 async function onDialogClick(e) {
   const diff = e.target.closest('[data-vp-difficulty]');
   if (diff) { state.difficulty = diff.dataset.vpDifficulty; render(); return; }
@@ -450,9 +472,9 @@ async function onDialogClick(e) {
   else if (action === 'end') { await endCall(); state.stage = 'debrief'; render(); }
   else if (action === 'mute') { state.muted = !state.muted; state.conversation?.setMicMuted(state.muted); e.target.textContent = state.muted ? 'Unmute' : 'Mute'; e.target.setAttribute('aria-pressed', state.muted); }
   else if (action === 'reroll') { state.scenario = generateScenario(); state.error = null; render(); }
-  else if (action === 'retry') { open(state.key, returnFocus, state.scenario); }
-  else if (action === 'new') { open(state.key, returnFocus); }
-  else if (action === 'harder') { state.difficulty = state.difficulty === 'friendly' ? 'realistic' : 'tough'; open(state.key, returnFocus, state.scenario); }
+  else if (action === 'retry') { open(state.key, returnFocus, state.scenario, { channel: state.text ? 'text' : 'voice' }); }
+  else if (action === 'new') { open(state.key, returnFocus, null, { channel: state.text ? 'text' : 'voice' }); }
+  else if (action === 'harder') { state.difficulty = state.difficulty === 'friendly' ? 'realistic' : 'tough'; open(state.key, returnFocus, state.scenario, { channel: state.text ? 'text' : 'voice' }); }
   else if (action === 'close') closeDialog();
 }
 
@@ -478,7 +500,7 @@ async function startCall() {
   let target;
   try {
     target = await getSessionTarget();
-    await navigator.mediaDevices.getUserMedia({ audio: true }).then(st => st.getTracks().forEach(t => t.stop()));
+    if (!state.text) await navigator.mediaDevices.getUserMedia({ audio: true }).then(st => st.getTracks().forEach(t => t.stop()));
   } catch (err) {
     state.error = err?.name === 'NotAllowedError' ? 'Microphone access was blocked. Allow it in your browser settings and try again.' : (err?.message || String(err));
     render();
@@ -494,11 +516,13 @@ async function startCall() {
     if (!Conversation) ({ Conversation } = await import(SDK_URL));
     const conversation = await Conversation.startSession({
       ...target,
+      textOnly: state.text,
       overrides: {
         agent: {
-          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}` },
+          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}` },
           firstMessage: s.firstMessage,
         },
+        ...(state.text ? { conversation: { textOnly: true } } : {}),
       },
       onConnect: () => {
         state.status = 'connected';
@@ -533,7 +557,7 @@ async function startCall() {
       onMessage: (m) => {
         const role = m.role || m.source;
         const text = (m.message || '').trim();
-        if (!text) return;
+        if (!text || (state.text && role === 'user')) return; // typed messages are added on send
         state.messages.push({ who: role === 'user' ? 'you' : 'buyer', text });
         renderTranscript();
       },
@@ -605,5 +629,5 @@ document.addEventListener('click', e => {
 
 // Entry point for the REPS practice loop's "Voice demo" mode (step 03 in demo.html).
 window.REPSVoice = {
-  openScenario: (key, { intention, onClose, trigger } = {}) => open(`lib:${key}`, trigger, null, { intention, onClose }),
+  openScenario: (key, { intention, onClose, trigger, channel = 'voice' } = {}) => open(`lib:${key}`, trigger, null, { intention, onClose, channel }),
 };
