@@ -493,7 +493,7 @@ function caseHtml(s) {
     <div class="cs-block cs-goal"><span>Your goal</span><p>${esc(s.objective)}</p></div>
     <div class="cs-block"><span>Situation</span><p>${esc(s.summary)}</p></div>
     <div class="cs-block"><span>Moves to try</span><ul>${s.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
-    <div class="cs-chip">${esc(DIFFICULTY[state.difficulty].label)} buyer${state.voice ? ` · voice ${esc(state.voice.name)}` : ''}</div>`;
+    <div class="cs-chip">${esc(DIFFICULTY[state.difficulty].label)} buyer</div>`;
 }
 
 function renderLive(s) {
