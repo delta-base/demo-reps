@@ -230,3 +230,8 @@ details.vp-full .vp-transcript{height:auto;max-height:360px;margin-top:12px}
 .vp-facts dt{color:var(--muted);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .vp-facts dd{margin:2px 0 0;font-size:.88rem;font-weight:600;line-height:1.35}
 @media(max-width:560px){.vp-facts{grid-template-columns:1fr}}
+
+/* Captions sit above the avatar and never grow past two lines */
+.tile-caption{z-index:4}
+.tile-caption span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.call:not(.is-text) .avatar-wrap{margin-top:-70px}

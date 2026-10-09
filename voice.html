@@ -364,7 +364,8 @@ async function stopSession(){
   try{await conversation.endSession()}catch(e){console.error(e)}finally{conversation=null;$("orb").classList.remove("speaking");$("mic").disabled=false;$("stop").disabled=true;setChat(false);setStatus("disconnected","Session ended")}
 }
 function addMsg(who,text){
-  if(!String(text||"").trim())return;
+  text=String(text||"").replace(/\[[a-z][a-z \-']{0,30}\]\s*/gi,"").replace(/\s{2,}/g," ").trim(); // drop voice cues like [skeptical]
+  if(!text)return;
   const el=document.createElement("div");el.className="msg"+(who==="you"?" you":"");
   el.innerHTML=`<small>${who==="you"?"YOU":"BUYER"}</small>${esc(text)}`;
   $("transcript").appendChild(el);$("transcript").scrollTop=$("transcript").scrollHeight;

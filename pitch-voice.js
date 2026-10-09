@@ -16,6 +16,8 @@ const WARN_AT_SECONDS = MAX_CALL_SECONDS - 2 * 60;
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+// Voice models may emit delivery cues such as "[skeptical]": spoken style, never shown.
+const stripCues = t => String(t).replace(/\[[a-z][a-z \-']{0,30}\]\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 const PERSONA_RULES = `
@@ -567,7 +569,13 @@ function renderTranscript() {
   el.scrollTop = el.scrollHeight;
   const cap = $('#vp-caption');
   const last = state.messages[state.messages.length - 1];
-  if (cap && last) { cap.textContent = last.who === 'buyer' ? last.text : ''; cap.classList.toggle('show', last.who === 'buyer'); }
+  if (cap && last) {
+    const sentences = last.text.match(/[^.!?]+[.!?]*/g) || [last.text];
+    let line = '';
+    for (let i = sentences.length - 1; i >= 0 && (line.length + sentences[i].length) < 170; i--) line = sentences[i].trim() + ' ' + line;
+    cap.innerHTML = last.who === 'buyer' ? `<span>${esc(line.trim() || sentences[sentences.length - 1].trim())}</span>` : '';
+    cap.classList.toggle('show', last.who === 'buyer');
+  }
 }
 
 function syncLiveState() {
@@ -795,7 +803,7 @@ async function openSession(resume) {
       onMessage: (m) => {
         if (seq !== state.sessionSeq) return;
         const role = m.role || m.source;
-        const text = (m.message || '').trim();
+        const text = stripCues(m.message || '');
         if (!text || (state.text && role === 'user')) return; // typed messages are added on send
         if (role !== 'user') { state.waiting = false; syncLiveState(); }
         state.messages.push({ who: role === 'user' ? 'you' : 'buyer', text });
