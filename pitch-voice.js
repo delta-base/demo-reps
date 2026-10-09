@@ -558,8 +558,9 @@ function stateLabel() {
 
 function transcriptHtml() {
   const s = state.scenario;
-  if (!state.messages.length) return `<p class="vp-empty">The transcript will appear here as you talk.</p>`;
-  return state.messages.map(m => `<div class="vp-msg ${m.who === 'you' ? 'you' : ''}"><small>${m.who === 'you' ? 'YOU' : esc(s.persona.name.toUpperCase())}</small>${esc(m.text)}</div>`).join('');
+  const shown = state.messages.filter(m => m.text);
+  if (!shown.length) return `<p class="vp-empty">The transcript will appear here as you talk.</p>`;
+  return shown.map(m => `<div class="vp-msg ${m.who === 'you' ? 'you' : ''}"><small>${m.who === 'you' ? 'YOU' : esc(s.persona.name.toUpperCase())}</small>${esc(m.text)}</div>`).join('');
 }
 
 function renderTranscript() {
@@ -568,7 +569,7 @@ function renderTranscript() {
   el.innerHTML = transcriptHtml();
   el.scrollTop = el.scrollHeight;
   const cap = $('#vp-caption');
-  const last = state.messages[state.messages.length - 1];
+  const last = [...state.messages].reverse().find(m => m.text);
   if (cap && last) {
     const sentences = last.text.match(/[^.!?]+[.!?]*/g) || [last.text];
     let line = '';
@@ -712,6 +713,105 @@ async function startCall() {
   await openSession(false);
 }
 
+// ---------- Live subtitles ----------
+// The buyer's full reply arrives as text before its audio. We reveal it word by word on the
+// playback clock, using the per-character timings that come with each audio chunk, so the
+// learner can only read what they have actually heard.
+const OUTPUT_LATENCY_MS = 120;
+const PCM_BYTES_PER_MS = 32; // pcm_16000: 16 kHz × 16-bit mono
+const VOICE_TRIGGER = { start: '[call connected]', resume: '[call resumed]' };
+
+function newLive() {
+  return { msg: { who: 'buyer', full: '', heard: '', text: '', live: true }, listed: false, base: null, cursor: 0, audioPos: 0, queue: [] };
+}
+
+// The reply's text arrived. Its audio may already be playing (then the line already exists).
+function liveStart(fullText) {
+  if (!state.live || state.live.listed) { liveFinish(); state.live = newLive(); }
+  const L = state.live;
+  L.msg.full = fullText;
+  L.listed = true;
+  state.messages.push(L.msg);
+  renderTranscript();
+}
+
+// Called from onAudio only, which the SDK skips for audio of an interrupted reply,
+// so stale timings never reach the screen.
+function liveChunk(b64) {
+  const a = state.pendingAlign;
+  state.pendingAlign = null;
+  if (!state.live) state.live = newLive();
+  liveAlign(a);
+  liveAudio(b64);
+}
+
+function liveAlign(a) {
+  const L = state.live;
+  const now = performance.now();
+  if (L.base == null) L.base = Math.max(now + OUTPUT_LATENCY_MS, state.audioEnd || 0);
+  if (!a?.chars?.length) return;
+  // Timings are relative to their own segment; segments play back to back, never before their audio.
+  const segStart = Math.max(L.cursor, L.audioPos);
+  a.chars.forEach((ch, i) => L.queue.push({ t: L.base + segStart + a.char_start_times_ms[i], ch }));
+  const last = a.chars.length - 1;
+  L.cursor = segStart + a.char_start_times_ms[last] + (a.char_durations_ms[last] || 0);
+}
+
+function liveAudio(b64) {
+  const ms = (b64.length * 3 / 4) / PCM_BYTES_PER_MS;
+  state.audioEnd = Math.max(state.audioEnd || 0, performance.now() + OUTPUT_LATENCY_MS) + ms;
+  if (state.live) state.live.audioPos += ms;
+}
+
+function livePump() {
+  const L = state?.live;
+  if (!L) return;
+  const now = performance.now();
+  let changed = false;
+  while (L.queue.length && L.queue[0].t <= now) { L.msg.heard += L.queue.shift().ch; changed = true; }
+  if (changed) { L.msg.text = stripCues(L.msg.heard); renderTranscript(); }
+  // Done when the audio has played out and either (almost) every word was heard, or the
+  // line has been quiet for a while. Short gaps between audio chunks must not end the reply.
+  if (!L.listed || state.mode !== 'listening' || L.queue.length) return;
+  const quietFor = now - (state.audioEnd || 0);
+  const heardAll = stripCues(L.msg.heard).length >= stripCues(L.msg.full).length * 0.9;
+  if ((heardAll && quietFor > 150) || quietFor > 1200) liveFinish();
+}
+
+// Reply finished playing: show the clean, complete text.
+function liveFinish() {
+  const L = state?.live;
+  if (!L) return;
+  if (!L.listed) { state.live = null; return; } // audio without text: nothing to show
+  L.msg.text = stripCues(L.msg.full);
+  L.msg.live = false;
+  state.live = null;
+  renderTranscript();
+}
+
+// The learner cut in (or paused): keep only what they heard, and tell the buyer.
+function liveInterrupt(tellBuyer = true) {
+  const L = state?.live;
+  if (!L) return;
+  if (!L.listed) { state.live = null; state.audioEnd = performance.now(); return; }
+  const now = performance.now();
+  while (L.queue.length && L.queue[0].t <= now) L.msg.heard += L.queue.shift().ch;
+  L.queue = [];
+  state.audioEnd = now;
+  const heard = stripCues(L.msg.heard);
+  const full = stripCues(L.msg.full);
+  L.msg.text = heard ? `${heard} —` : '—';
+  L.msg.live = false;
+  L.msg.interrupted = true;
+  state.live = null;
+  renderTranscript();
+  if (tellBuyer && heard.length < full.length) {
+    try {
+      state.conversation?.sendContextualUpdate(`You were interrupted. The learner only heard this part of your last reply: "${heard || '(nothing)'}". They did not hear the rest, so do not assume they know it. If it matters, bring it up again briefly later.`);
+    } catch { /* best effort */ }
+  }
+}
+
 // Seconds of actual conversation (pauses excluded).
 function talkSeconds(now = Date.now()) {
   if (!state.startedAt) return 0;
@@ -725,6 +825,7 @@ async function pauseCall() {
   if (!state.conversation || state.paused) return;
   if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
   state.modeSince = null;
+  liveInterrupt(false);
   state.paused = true;
   state.pausedAt = Date.now();
   state.status = 'paused';
@@ -749,6 +850,11 @@ async function openSession(resume) {
   const s = state.scenario;
   const seq = state.sessionSeq = (state.sessionSeq || 0) + 1;
   const history = state.messages.map(m => `${m.who === 'you' ? 'Learner' : 'You'}: ${m.text}`).join('\n');
+  const trigger = resume ? VOICE_TRIGGER.resume : VOICE_TRIGGER.start;
+  const openLine = resume ? "Okay, I'm back. Go ahead." : s.firstMessage;
+  // Voice: connect silently and ask for the opening line only once the speaker is ready,
+  // otherwise the first second of audio arrives before playback exists and is lost.
+  const triggerNote = state.text ? '' : `\n\nThe call starts when you receive the message ${trigger}. Reply to it with exactly this line and nothing else: "${openLine}". Never mention or repeat bracketed messages like that.`;
   const resumeNote = resume
     ? `\n\nThe call was briefly paused by the learner and is now resuming. Continue naturally from where you left off. Do not greet again, do not recap, and do not comment on the pause.\nConversation so far:\n${history}`
     : '';
@@ -757,11 +863,12 @@ async function openSession(resume) {
     const target = resume && state.target?.signedUrl ? await getSessionTarget() : state.target; // signed URLs are single-use
     const conversation = await Conversation.startSession({
       ...target,
+      ...(target.agentId ? { connectionType: 'websocket' } : {}), // websocket gives per-word timings
       textOnly: state.text,
       overrides: {
         agent: {
-          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}${resumeNote}` },
-          firstMessage: resume ? 'Okay, I\'m back. Go ahead.' : s.firstMessage,
+          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}${resumeNote}${triggerNote}` },
+          firstMessage: state.text ? openLine : '',
         },
         ...(state.text ? { conversation: { textOnly: true } } : { tts: { voiceId: state.voice.id } }),
       },
@@ -793,6 +900,9 @@ async function openSession(resume) {
         }
         render();
       },
+      onAudioAlignment: (a) => { if (seq === state.sessionSeq) state.pendingAlign = a; },
+      onAudio: (b64) => { if (seq === state.sessionSeq) liveChunk(b64); },
+      onInterruption: () => { if (seq === state.sessionSeq) liveInterrupt(true); },
       onModeChange: ({ mode }) => {
         if (seq !== state.sessionSeq) return;
         if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
@@ -805,7 +915,9 @@ async function openSession(resume) {
         const role = m.role || m.source;
         const text = stripCues(m.message || '');
         if (!text || (state.text && role === 'user')) return; // typed messages are added on send
+        if (role === 'user' && /^\[call (connected|resumed)\]$/i.test(text)) return; // our own start signal
         if (role !== 'user') { state.waiting = false; syncLiveState(); }
+        if (role !== 'user' && !state.text) { liveStart(text); return; } // revealed as it is spoken
         state.messages.push({ who: role === 'user' ? 'you' : 'buyer', text });
         renderTranscript();
       },
@@ -817,6 +929,9 @@ async function openSession(resume) {
     });
     if (seq !== state.sessionSeq || state.paused || state.stage !== 'live') { try { await conversation.endSession(); } catch { /* closed */ } return; }
     state.conversation = conversation;
+    if (!state.text) setTimeout(() => {
+      if (seq === state.sessionSeq && state.conversation === conversation) conversation.sendUserMessage(trigger);
+    }, 150);
   } catch (err) {
     console.error('[REPS voice]', err);
     if (resume) { // keep the conversation; let the learner try resuming again
@@ -832,6 +947,7 @@ async function openSession(resume) {
 }
 
 function finishTiming() {
+  liveFinishOnEnd();
   if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
   state.modeSince = null;
   if (state.paused && state.pausedAt) { state.pausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
@@ -839,6 +955,9 @@ function finishTiming() {
   state.endedAt = Date.now();
   stopTicker();
 }
+
+// Ending mid-sentence: keep what was heard.
+function liveFinishOnEnd() { if (state?.live) liveInterrupt(false); }
 
 async function endCall() {
   if (!state) return;
@@ -868,6 +987,7 @@ function startTicker() {
       try { state.conversation?.sendContextualUpdate('Two minutes remain in this call. If the learner has not proposed a next step yet, start steering naturally toward wrapping up.'); } catch { /* best effort */ }
     }
   }, 500);
+  if (!state.text) state.liveTimer = setInterval(livePump, 50);
   const tick = () => {
     const stage = $('#vp-stage');
     const c = state.conversation;
@@ -888,6 +1008,8 @@ function startTicker() {
 
 function stopTicker() {
   if (!state) return;
+  clearInterval(state.liveTimer);
+  state.liveTimer = null;
   clearInterval(state.timer);
   cancelAnimationFrame(state.raf);
   state.timer = state.raf = null;
