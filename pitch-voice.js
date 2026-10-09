@@ -3,16 +3,15 @@
 //
 // Configuration (first match wins):
 //   1. ?agent=<agent_id> in the URL
-//   2. window.REPS_VOICE_CONFIG = { agentId, signedUrlEndpoint }  (set before this script loads)
-//   3. Agent ID typed into the setup screen (remembered in localStorage)
-// If signedUrlEndpoint is set (see voice-server.mjs), a signed URL is fetched instead, so the
-// agent can stay private and the API key never reaches the browser.
+//   2. window.REPS_VOICE_CONFIG = { agentId, signedUrlEndpoint }  (voice-config.js, or voice-server.mjs from .env)
+// If signedUrlEndpoint is set, a signed URL is fetched instead, so the agent can stay private.
 //
-// The agent's persona comes from the per-session overrides below. Enable "System prompt" and
-// "First message" overrides in the agent's Security settings on elevenlabs.io.
+// Persona, first line and voice come from per-session overrides. The agent must allow the
+// "System prompt", "First message" and "Voice" overrides in its Security settings.
 
 const SDK_URL = 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/+esm';
-const STORAGE_KEY = 'reps.voice.agentId';
+const RECENT_VOICES_KEY = 'reps.voice.recent';
+const MAX_CALL_SECONDS = 20 * 60; // matches the agent's max_duration_seconds
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
@@ -33,13 +32,68 @@ const DIFFICULTY = {
   tough: { label: 'Tough', rule: 'You are skeptical and short on time. Interrupt rambling, challenge every claim with "how do you know?", and raise three or more objections before you consider a next step.' },
 };
 
+// ---------- Personas & voices ----------
+// Premade ElevenLabs voices that suit business conversations. Tone steers the pick by difficulty.
+const VOICES = [
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', gender: 'female', tone: 'warm' },
+  { id: 'hpp4J3VqNfWAUOO0d1Us', name: 'Bella', gender: 'female', tone: 'warm' },
+  { id: 'cgSgspJ2msm6clMCkdW9', name: 'Jessica', gender: 'female', tone: 'warm' },
+  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', gender: 'female', tone: 'neutral' },
+  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice', gender: 'female', tone: 'firm' },
+  { id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily', gender: 'female', tone: 'firm' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', gender: 'male', tone: 'warm' },
+  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will', gender: 'male', tone: 'warm' },
+  { id: 'iP95p4xoKVk53GoZ742B', name: 'Chris', gender: 'male', tone: 'warm' },
+  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', gender: 'male', tone: 'warm' },
+  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric', gender: 'male', tone: 'neutral' },
+  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George', gender: 'male', tone: 'neutral' },
+  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian', gender: 'male', tone: 'neutral' },
+  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel', gender: 'male', tone: 'firm' },
+  { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', gender: 'male', tone: 'firm' },
+  { id: 'pqHfZKP75CvOlQylNhV4', name: 'Bill', gender: 'male', tone: 'firm' },
+];
+const TONE_FOR = { friendly: 'warm', tough: 'firm' };
+
+// A voice that matches the persona's gender and the difficulty, avoiding the last few used.
+function pickVoice(gender, difficulty) {
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(RECENT_VOICES_KEY) || '[]'); } catch { /* storage blocked */ }
+  const sameGender = VOICES.filter(v => v.gender === gender);
+  const tone = TONE_FOR[difficulty];
+  const pool = [sameGender.filter(v => (!tone || v.tone === tone) && !recent.includes(v.id)), sameGender.filter(v => !recent.includes(v.id)), sameGender]
+    .find(list => list.length);
+  const voice = pool[Math.floor(Math.random() * pool.length)];
+  try { localStorage.setItem(RECENT_VOICES_KEY, JSON.stringify([voice.id, ...recent].slice(0, 4))); } catch { /* storage blocked */ }
+  return voice;
+}
+
+const FEMALE_NAMES = ['Sofie', 'Elena', 'Nadia', 'Hannah', 'Julia', 'Amira', 'Clara', 'Lotte', 'Ines', 'Charlotte', 'Marie', 'Eva'];
+const MALE_NAMES = ['Lucas', 'Marco', 'Pieter', 'Karim', 'Tom', 'Bram', 'David', 'Omar', 'Jonas', 'Arthur', 'Ruben', 'Thomas'];
+const LAST_NAMES = ['Peeters', 'Janssens', 'Moreau', 'Rossi', 'Haddad', 'De Smet', 'Fischer', 'Novak', 'Dubois', 'Claes', 'Bakker', 'Silva', 'Wouters', 'Maes'];
+const initialsOf = name => name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const hueOf = name => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+
+function randomPerson() {
+  const gender = Math.random() < 0.5 ? 'female' : 'male';
+  const first = pick(gender === 'female' ? FEMALE_NAMES : MALE_NAMES);
+  return { name: `${first} ${pick(LAST_NAMES)}`, gender };
+}
+
+// Best guess when a user types their own buyer name.
+function genderOf(name, fallback) {
+  const first = String(name).trim().split(/\s+/)[0];
+  if (FEMALE_NAMES.includes(first)) return 'female';
+  if (MALE_NAMES.includes(first)) return 'male';
+  return fallback;
+}
+
 export const PITCH_SCENARIOS = {
   elevator: {
     number: '01 / ELEVATOR PITCH',
     title: 'Sixty seconds with a busy VP.',
     summary: 'You catch a VP of Sales between meetings. Earn attention fast, connect to their world, and leave with a next step.',
     tags: ['Hook', 'Relevance', 'Clear ask'],
-    persona: { name: 'Maya Laurent', role: 'VP Sales, mid-market SaaS (120 reps)', initials: 'ML' },
+    persona: { name: 'Maya Laurent', gender: 'female', role: 'VP Sales, mid-market SaaS (120 reps)', initials: 'ML' },
     objective: 'Within about two minutes, earn enough interest to book a 30-minute discovery call.',
     tips: ['Open with something about their world, not your company history.', 'One sharp problem, one outcome with a number.', 'End with a specific, low-friction ask.'],
     firstMessage: "Hi, sorry, I've only got a couple of minutes before my next call. What did you want to talk about?",
@@ -52,7 +106,7 @@ The seller sells a sales practice and coaching platform.`,
     title: 'Make the CFO care.',
     summary: 'The CFO joins late and asks one thing: why should we spend money on this? Translate your pitch into business impact.',
     tags: ['ROI framing', 'Cost of inaction', 'Proof'],
-    persona: { name: 'Thomas Verbeke', role: 'CFO, logistics group (€300M revenue)', initials: 'TV' },
+    persona: { name: 'Thomas Verbeke', gender: 'male', role: 'CFO, logistics group (€300M revenue)', initials: 'TV' },
     objective: 'Get the CFO to agree that the business case is worth building together, with their numbers.',
     tips: ['Ask what the board measures before you quote ROI.', 'Make the cost of doing nothing explicit.', 'Use a proof point, then propose building the case together.'],
     firstMessage: "I'm told you have ten minutes. Honestly, every vendor says they'll save us money. Why should I spend budget on this right now?",
@@ -66,7 +120,7 @@ The seller sells a sales practice and coaching platform.`,
     title: '“We already use someone.”',
     summary: 'The prospect is happy enough with an incumbent. Find the gap they tolerate, differentiate without bashing, and earn a pilot.',
     tags: ['Discovery', 'Differentiation', 'Objection handling'],
-    persona: { name: 'Priya Nair', role: 'Head of Enablement, fintech scale-up', initials: 'PN' },
+    persona: { name: 'Priya Nair', gender: 'female', role: 'Head of Enablement, fintech scale-up', initials: 'PN' },
     objective: 'Uncover a gap in the current setup and agree a small pilot or comparison.',
     tips: ['Acknowledge the incumbent, then get curious about what it does not do.', 'Differentiate on their gap, not your feature list.', 'Propose a low-risk way to compare.'],
     firstMessage: "Thanks for reaching out, but to be upfront, we already have a training platform and it's fine. So what's different about yours?",
@@ -110,8 +164,6 @@ const PRODUCTS = [
   { product: 'a corporate e-bike leasing program for employees', price: 'tax-advantaged, about €0 net cost to the employer' },
 ];
 
-const FIRST_NAMES = ['Sofie', 'Lucas', 'Elena', 'Marco', 'Nadia', 'Pieter', 'Hannah', 'Karim', 'Julia', 'Tom', 'Amira', 'Bram', 'Clara', 'David', 'Lotte', 'Omar'];
-const LAST_NAMES = ['Peeters', 'Janssens', 'Moreau', 'Rossi', 'Haddad', 'De Smet', 'Fischer', 'Novak', 'Dubois', 'Claes', 'Bakker', 'Silva'];
 const PERSONALITIES = [
   'numbers-driven: you want concrete figures and payback time',
   'friendly and chatty, but you avoid committing to anything',
@@ -144,6 +196,7 @@ function fromLibrary(key, intention) {
   const x = libraryScenarios()[key];
   if (!x) return null;
   const strip = t => String(t).replace(/[“”"]/g, '').trim();
+  const who = randomPerson();
   // Scripted replies tell the agent how this counterpart reacts and what sits behind their position.
   const reactions = (x.turns || []).flatMap(turn => turn.map(c => `- If the learner says something like "${strip(c.text)}" (${['weak', 'partial', 'strong'][c.quality]} move), you would react like: "${strip(c.reply)}"`));
   return {
@@ -151,12 +204,12 @@ function fromLibrary(key, intention) {
     number: `${x.audience} SCENARIO`,
     title: strip(x.title),
     summary: x.context,
-    persona: { name: x.role, role: `Your AI counterpart · ${x.audience.toLowerCase()} scenario`, initials: x.role.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() },
+    persona: { name: who.name, gender: who.gender, role: x.role, initials: initialsOf(who.name) },
     objective: x.intentions[intention]?.label || x.intentions.map(i => i.label).join(' '),
     tips: x.intentions.map(i => i.next),
     intentions: x.intentions,
     firstMessage: strip(x.opening),
-    prompt: `You are the ${x.role} in this conversation.
+    prompt: `You are ${who.name}, the ${x.role} in this conversation.
 The learner's situation (from their side): ${x.context}
 You open with: "${strip(x.opening)}"
 How you react to different moves. Use these as character guidance, not a script. Improvise naturally beyond them and keep your underlying concern consistent:
@@ -168,10 +221,11 @@ The learner is practising these behaviours, so make them work for it: ${x.intent
 function generateScenario(overrides = {}) {
   const buyer = pick(BUYERS);
   const offer = pick(PRODUCTS);
-  const first = pick(FIRST_NAMES);
-  const name = `${first} ${pick(LAST_NAMES)}`;
+  const who = randomPerson();
+  const first = who.name.split(' ')[0];
   return buildRandomScenario({
-    name,
+    name: who.name,
+    gender: who.gender,
     role: buyer.role,
     business: buyer.business,
     product: offer.product,
@@ -184,14 +238,15 @@ function generateScenario(overrides = {}) {
 }
 
 function buildRandomScenario(b) {
-  const initials = b.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const initials = initialsOf(b.name);
   return {
     random: true,
     brief: b,
     number: 'SURPRISE PITCH',
     title: `Sell ${b.product.split(',')[0]} to ${b.name.split(' ')[0]}.`,
     summary: `You are calling ${b.name}, ${b.role} of ${b.business}. You sell ${b.product} (${b.price}).`,
-    persona: { name: b.name, role: `${b.role} · ${b.business}`, initials },
+    persona: { name: b.name, gender: genderOf(b.name, b.gender || 'female'), role: `${b.role} · ${b.business}`, initials },
+    facts: [['Their business', b.business], ['You sell', b.product], ['Your price', b.price], ['Their personality', b.personality]],
     objective: b.goal,
     tips: ['Find out how their business makes money before you pitch.', 'Connect one feature to one of their real problems, with a number.', 'If it is a stretch fit, find the angle, or be honest about it.'],
     firstMessage: b.opener,
@@ -248,10 +303,8 @@ let returnFocus = null;
 function resolveConfig() {
   const params = new URLSearchParams(location.search);
   const cfg = window.REPS_VOICE_CONFIG || {};
-  let stored = '';
-  try { stored = localStorage.getItem(STORAGE_KEY) || ''; } catch { /* storage blocked */ }
   return {
-    agentId: params.get('agent') || cfg.agentId || stored,
+    agentId: params.get('agent') || cfg.agentId || '',
     signedUrlEndpoint: cfg.signedUrlEndpoint || '',
   };
 }
@@ -309,6 +362,7 @@ function open(key, trigger, scenario, opts = {}) {
 function render() {
   const s = state.scenario;
   const root = $('#vp-content');
+  $('#voice-dialog').classList.toggle('is-live', state.stage === 'live');
   if (state.stage === 'setup') root.innerHTML = renderSetup(s);
   else if (state.stage === 'live') root.innerHTML = renderLive(s);
   else root.innerHTML = renderDebrief(s);
@@ -319,8 +373,6 @@ function render() {
 }
 
 function renderSetup(s) {
-  const cfg = resolveConfig();
-  const needsAgent = !cfg.agentId && !cfg.signedUrlEndpoint;
   return `<div class="vp-kicker">${s.library ? "03 — VOICE PRACTICE" : "PITCH PRACTICE · VOICE"} · ${esc(s.number)}</div>
   <h2 id="vp-title">${esc(s.title)}</h2>
   <p class="vp-lead">${esc(s.summary)} ${state.text ? 'You will chat in text with an AI buyer in real time.' : 'You will speak out loud with an AI buyer in real time. Use headphones for the best experience.'}</p>
@@ -335,16 +387,16 @@ function renderSetup(s) {
       <h3>Buyer difficulty</h3>
       <div class="vp-options" role="group" aria-label="Buyer difficulty">${Object.entries(DIFFICULTY).map(([k, v]) => `<button type="button" data-vp-difficulty="${k}" aria-pressed="${state.difficulty === k}">${v.label}</button>`).join('')}</div>
       <p class="vp-hint">${esc(DIFFICULTY[state.difficulty].rule)}</p>
-      ${cfg.signedUrlEndpoint ? `<p class="vp-hint" style="margin-top:16px">Connected through a private agent endpoint.</p>` : `
-      <label class="vp-field">ElevenLabs agent ID
-        <input id="vp-agent-id" type="text" autocomplete="off" spellcheck="false" placeholder="agent_…" value="${esc(cfg.agentId)}">
-      </label>
-      <p class="vp-hint">Create an agent at elevenlabs.io → Agents, then under <b>Security</b> enable overrides for <code>System prompt</code> and <code>First message</code>. The agent ID is not a secret; it is saved in this browser only.</p>`}
+      <div class="vp-setup-meta">
+        <span>⏱ Up to 20 minutes</span>
+        <span>${state.text ? '💬 Live text chat' : '🎧 Best with headphones'}</span>
+        <span>📝 Debrief right after</span>
+      </div>
     </div>
   </div>
   ${state.error ? `<div class="vp-error" role="alert">${esc(state.error)}</div>` : ''}
   <div class="vp-actions">
-    <button class="vp-btn" type="button" data-vp-action="start" ${needsAgent ? 'data-needs-agent' : ''}>${state.text ? '💬 Start the chat' : '🎙 Start the call'}</button>
+    <button class="vp-btn" type="button" data-vp-action="start">${state.text ? '💬 Start the chat' : '🎙 Start the call'}</button>
     <span class="vp-hint" style="margin:0">${state.text ? 'Type your replies; the buyer answers in text.' : 'Your browser will ask for microphone access.'}</span>
   </div>`;
 }
@@ -371,32 +423,77 @@ function readBrief() {
   return b;
 }
 
+const ICON = {
+  mic: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
+  micOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.5V6a3 3 0 0 0-5.6-1.5M9 9v2a3 3 0 0 0 4.7 2.5M5.5 11a6.5 6.5 0 0 0 10.3 5.3M18.5 11c0 .8-.1 1.5-.4 2.2M12 17.5V21M4 4l16 16"/></svg>',
+  cc: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17 10.2a2.4 2.4 0 1 0 0 3.6"/></svg>',
+  panel: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M14.5 4v16"/></svg>',
+  end: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 14.5c4.7-4.3 12.3-4.3 17 0l-1.8 2.3a1 1 0 0 1-1.3.2l-2.3-1.4a1 1 0 0 1-.5-.9v-1.8a10.6 10.6 0 0 0-5.2 0v1.8a1 1 0 0 1-.5.9L6.6 17a1 1 0 0 1-1.3-.2z"/></svg>',
+};
+
+function caseHtml(s) {
+  const facts = s.facts || [];
+  return `<div class="cs-person"><span class="cs-avatar" style="--hue:${hueOf(s.persona.name)}">${esc(s.persona.initials)}</span><div><strong>${esc(s.persona.name)}</strong><small>${esc(s.persona.role)}</small></div></div>
+    <div class="cs-block cs-goal"><span>Your goal</span><p>${esc(s.objective)}</p></div>
+    <div class="cs-block"><span>Situation</span><p>${esc(s.summary)}</p></div>
+    ${facts.length ? `<dl class="cs-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+    <div class="cs-block"><span>Moves to try</span><ul>${s.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+    <div class="cs-chip">${esc(DIFFICULTY[state.difficulty].label)} buyer${state.voice ? ` · voice ${esc(state.voice.name)}` : ''}</div>`;
+}
+
 function renderLive(s) {
-  return `<div class="vp-kicker">${state.text ? 'LIVE CHAT' : 'LIVE CALL'} · ${esc(DIFFICULTY[state.difficulty].label.toUpperCase())} BUYER</div>
-  <h2 id="vp-title">${esc(s.title)}</h2>
-  <div class="vp-objective">${esc(s.objective)}</div>
-  <div class="vp-live">
-    <div class="vp-stage" id="vp-stage" data-status="${state.status}" data-mode="${state.mode}">
-      <div class="vp-orb" id="vp-orb" aria-hidden="true"></div>
-      <div class="vp-state" id="vp-state" role="status" aria-live="polite">${stateLabel()}</div>
-      <div class="vp-timer" id="vp-timer">00:00</div>
-      <div class="vp-stage-actions">
-        ${state.text ? '' : `<button class="vp-btn secondary" type="button" data-vp-action="mute" aria-pressed="${!!state.muted}">${state.muted ? 'Unmute' : 'Mute'}</button>`}
-        <button class="vp-btn danger" type="button" data-vp-action="end">${state.text ? 'End chat & debrief' : 'End call & debrief'}</button>
-      </div>
+  const tab = state.tab || (state.text ? 'chat' : 'case');
+  const first = s.persona.name.split(' ')[0];
+  return `<div class="call ${state.text ? 'is-text' : ''} ${state.panel === false ? 'no-panel' : ''}" id="vp-stage" data-status="${state.status}" data-mode="${state.mode}">
+    <div class="call-top">
+      <div class="call-live"><span class="call-dot"></span><span id="vp-state" role="status" aria-live="polite">${stateLabel()}</span></div>
+      <h2 class="call-title" id="vp-title">${esc(s.title)}</h2>
+      <div class="call-time"><span id="vp-timer">00:00</span><span class="call-limit">/ ${fmt(MAX_CALL_SECONDS)}</span></div>
     </div>
-    <div>
-      <div class="vp-transcript" id="vp-transcript" aria-label="Live transcript"></div>
-      ${state.text ? `<form class="vp-chat" id="vp-chat"><input id="vp-chat-input" type="text" autocomplete="off" placeholder="Type your reply and press Enter" aria-label="Your reply" ${state.status === 'connected' ? '' : 'disabled'}><button class="vp-btn" type="submit">Send</button></form>` : ''}
+    <div class="call-body">
+      <section class="call-main" aria-label="Call">
+        <div class="tile tile-them" style="--hue:${hueOf(s.persona.name)}">
+          <div class="tile-glow" aria-hidden="true"></div>
+          <div class="avatar-wrap">
+            <span class="avatar-ring r1" aria-hidden="true"></span><span class="avatar-ring r2" aria-hidden="true"></span>
+            <div class="avatar" id="vp-avatar">${esc(s.persona.initials)}</div>
+          </div>
+          <div class="tile-typing" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="tile-label"><span class="eq" id="vp-eq-them" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>${esc(s.persona.name)}</strong><span>${esc(s.persona.role)}</span></div>
+          ${state.text ? '' : `<div class="tile-caption ${state.captions === false ? 'off' : ''}" id="vp-caption" aria-hidden="true"></div>`}
+          ${state.text ? '' : `<div class="tile tile-you ${state.muted ? 'muted' : ''}" id="vp-you">
+            <div class="you-avatar">You</div>
+            <div class="tile-label small"><span class="eq" id="vp-eq-you" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>You</strong><span class="you-muted">${ICON.micOff}</span></div>
+          </div>`}
+        </div>
+      </section>
+      <aside class="call-side" aria-label="Case and transcript">
+        <div class="side-tabs" role="tablist">
+          <button type="button" role="tab" data-vp-tab="case" aria-selected="${tab === 'case'}">Case details</button>
+          <button type="button" role="tab" data-vp-tab="chat" aria-selected="${tab === 'chat'}">${state.text ? 'Chat' : 'Transcript'}</button>
+        </div>
+        <div class="side-panel case-panel" ${tab === 'case' ? '' : 'hidden'}>${caseHtml(s)}</div>
+        <div class="side-panel chat-panel" ${tab === 'chat' ? '' : 'hidden'}>
+          <div class="vp-transcript" id="vp-transcript" aria-label="Live transcript"></div>
+          ${state.text ? `<form class="vp-chat" id="vp-chat"><input id="vp-chat-input" type="text" autocomplete="off" placeholder="Reply to ${esc(first)}…" aria-label="Your reply" ${state.status === 'connected' ? '' : 'disabled'}><button class="vp-send" type="submit" aria-label="Send">➤</button></form>` : ''}
+        </div>
+      </aside>
+    </div>
+    <div class="call-controls">
+      ${state.text ? '' : `<button type="button" class="ctl ${state.muted ? 'off' : ''}" data-vp-action="mute" aria-pressed="${!!state.muted}" title="${state.muted ? 'Unmute' : 'Mute'}">${state.muted ? ICON.micOff : ICON.mic}<span>${state.muted ? 'Unmute' : 'Mute'}</span></button>
+      <button type="button" class="ctl ${state.captions === false ? 'off' : ''}" data-vp-action="captions" aria-pressed="${state.captions !== false}" title="Captions">${ICON.cc}<span>Captions</span></button>`}
+      <button type="button" class="ctl ${state.panel === false ? 'off' : ''}" data-vp-action="panel" aria-pressed="${state.panel !== false}" title="Case details">${ICON.panel}<span>Case</span></button>
+      <button type="button" class="ctl ctl-end" data-vp-action="end" title="End and get your debrief">${ICON.end}<span>${state.text ? 'End chat' : 'End call'} & debrief</span></button>
     </div>
   </div>`;
 }
 
 function stateLabel() {
-  if (state.status === 'connecting') return 'CONNECTING…';
-  if (state.status !== 'connected') return state.text ? 'CHAT ENDED' : 'CALL ENDED';
-  if (state.text) return 'YOUR TURN · TYPE A REPLY';
-  return state.mode === 'speaking' ? `${state.scenario.persona.name.split(' ')[0].toUpperCase()} IS SPEAKING` : 'YOUR TURN · LISTENING';
+  const first = state.scenario.persona.name.split(' ')[0];
+  if (state.status === 'connecting') return `Calling ${first}…`;
+  if (state.status !== 'connected') return state.text ? 'Chat ended' : 'Call ended';
+  if (state.text) return state.waiting ? `${first} is typing…` : 'Live · your turn';
+  return state.mode === 'speaking' ? `${first} is speaking` : 'Live · listening to you';
 }
 
 function transcriptHtml() {
@@ -410,6 +507,9 @@ function renderTranscript() {
   if (!el) return;
   el.innerHTML = transcriptHtml();
   el.scrollTop = el.scrollHeight;
+  const cap = $('#vp-caption');
+  const last = state.messages[state.messages.length - 1];
+  if (cap && last) { cap.textContent = last.who === 'buyer' ? last.text : ''; cap.classList.toggle('show', last.who === 'buyer'); }
 }
 
 function syncLiveState() {
@@ -417,6 +517,7 @@ function syncLiveState() {
   if (!stage) return;
   stage.dataset.status = state.status;
   stage.dataset.mode = state.mode;
+  stage.classList.toggle('is-waiting', !!state.waiting);
   $('#vp-state').textContent = stateLabel();
   const input = $('#vp-chat-input');
   if (input) { input.disabled = state.status !== 'connected'; if (!input.disabled) input.focus(); }
@@ -458,19 +559,34 @@ function sendChat(e) {
   const text = input?.value.trim();
   if (!text || !state.conversation) return;
   state.messages.push({ who: 'you', text });
+  state.waiting = true;
+  syncLiveState();
   state.conversation.sendUserMessage(text);
   input.value = '';
   renderTranscript();
 }
 
+// Re-render the live screen without losing the chat draft or focus target.
+function rerenderLive() {
+  const draft = $('#vp-chat-input')?.value || '';
+  $('#vp-content').innerHTML = renderLive(state.scenario);
+  renderTranscript();
+  const input = $('#vp-chat-input');
+  if (input) input.value = draft;
+}
+
 async function onDialogClick(e) {
+  const tabBtn = e.target.closest('[data-vp-tab]');
+  if (tabBtn) { state.tab = tabBtn.dataset.vpTab; state.panel = true; rerenderLive(); return; }
   const diff = e.target.closest('[data-vp-difficulty]');
   if (diff) { state.difficulty = diff.dataset.vpDifficulty; render(); return; }
   const action = e.target.closest('[data-vp-action]')?.dataset.vpAction;
   if (!action) return;
   if (action === 'start') startCall();
   else if (action === 'end') { await endCall(); state.stage = 'debrief'; render(); }
-  else if (action === 'mute') { state.muted = !state.muted; state.conversation?.setMicMuted(state.muted); e.target.textContent = state.muted ? 'Unmute' : 'Mute'; e.target.setAttribute('aria-pressed', state.muted); }
+  else if (action === 'mute') { state.muted = !state.muted; state.conversation?.setMicMuted(state.muted); rerenderLive(); }
+  else if (action === 'captions') { state.captions = state.captions === false; rerenderLive(); }
+  else if (action === 'panel') { state.panel = state.panel === false; rerenderLive(); }
   else if (action === 'reroll') { state.scenario = generateScenario(); state.error = null; render(); }
   else if (action === 'retry') { open(state.key, returnFocus, state.scenario, { channel: state.text ? 'text' : 'voice' }); }
   else if (action === 'new') { open(state.key, returnFocus, null, { channel: state.text ? 'text' : 'voice' }); }
@@ -486,16 +602,14 @@ async function getSessionTarget() {
     const { signed_url } = await res.json();
     return { signedUrl: signed_url };
   }
-  const input = $('#vp-agent-id');
-  const agentId = (input?.value || cfg.agentId || '').trim();
-  if (!agentId) throw new Error('Add your ElevenLabs agent ID to start a voice call.');
-  try { localStorage.setItem(STORAGE_KEY, agentId); } catch { /* storage blocked */ }
-  return { agentId };
+  if (!cfg.agentId) throw new Error('Live practice is not available on this site right now.');
+  return { agentId: cfg.agentId };
 }
 
 async function startCall() {
   if (state.scenario.random) state.scenario = buildRandomScenario(readBrief());
   const s = state.scenario;
+  if (!state.text) state.voice = pickVoice(s.persona.gender || 'female', state.difficulty);
   state.error = null;
   let target;
   try {
@@ -522,7 +636,7 @@ async function startCall() {
           prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}` },
           firstMessage: s.firstMessage,
         },
-        ...(state.text ? { conversation: { textOnly: true } } : {}),
+        ...(state.text ? { conversation: { textOnly: true } } : { tts: { voiceId: state.voice.id } }),
       },
       onConnect: () => {
         state.status = 'connected';
@@ -558,6 +672,7 @@ async function startCall() {
         const role = m.role || m.source;
         const text = (m.message || '').trim();
         if (!text || (state.text && role === 'user')) return; // typed messages are added on send
+        if (role !== 'user') { state.waiting = false; syncLiveState(); }
         state.messages.push({ who: role === 'user' ? 'you' : 'buyer', text });
         renderTranscript();
       },
@@ -601,14 +716,17 @@ function startTicker() {
     if (el && state.startedAt) el.textContent = fmt(Math.floor((Date.now() - state.startedAt) / 1000));
   }, 500);
   const tick = () => {
-    const orb = $('#vp-orb');
+    const stage = $('#vp-stage');
     const c = state.conversation;
-    if (orb && c) {
-      let level = 0;
-      try { level = state.mode === 'speaking' ? c.getOutputVolume() : c.getInputVolume(); } catch { /* not ready */ }
-      level = Math.min(1, level * 1.8);
-      orb.style.setProperty('--level', level.toFixed(3));
-      orb.style.transform = `scale(${(1 + level * 0.18).toFixed(3)})`;
+    if (stage && c && !state.text) {
+      let out = 0, inp = 0;
+      try { out = c.getOutputVolume(); inp = state.muted ? 0 : c.getInputVolume(); } catch { /* not ready */ }
+      // Smooth the meters so they breathe instead of flicker.
+      state.lvOut = (state.lvOut || 0) * 0.7 + Math.min(1, out * 2.2) * 0.3;
+      state.lvIn = (state.lvIn || 0) * 0.7 + Math.min(1, inp * 2.6) * 0.3;
+      stage.style.setProperty('--them', state.lvOut.toFixed(3));
+      stage.style.setProperty('--you', state.lvIn.toFixed(3));
+      $('#vp-you')?.classList.toggle('talking', state.lvIn > 0.12);
     }
     state.raf = requestAnimationFrame(tick);
   };
