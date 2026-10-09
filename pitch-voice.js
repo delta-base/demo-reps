@@ -11,7 +11,8 @@
 
 const SDK_URL = 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/+esm';
 const RECENT_VOICES_KEY = 'reps.voice.recent';
-const MAX_CALL_SECONDS = 20 * 60; // matches the agent's max_duration_seconds
+const MAX_CALL_SECONDS = 15 * 60; // matches the agent's max_duration_seconds
+const WARN_AT_SECONDS = MAX_CALL_SECONDS - 2 * 60;
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
@@ -134,56 +135,72 @@ The seller sells a sales practice and coaching platform with AI roleplay.`,
 // ---------- Surprise pitch: a new buyer, business and product every time ----------
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-const BUYERS = [
-  { business: 'a family-owned B2C car dealership with three showrooms selling new and used cars', role: 'Owner & Managing Director' },
-  { business: 'a boutique hotel with 40 rooms in a historic city centre', role: 'General Manager' },
-  { business: 'a chain of 12 neighbourhood bakeries', role: 'Founder & CEO' },
-  { business: 'a regional chain of fitness studios with 9 locations', role: 'Head of Operations' },
-  { business: 'a mid-size dental clinic group with 6 practices', role: 'Practice Group Director' },
-  { business: 'an e-commerce shop selling premium pet food online', role: 'Co-founder, Growth' },
-  { business: 'a logistics company running 80 delivery vans', role: 'Fleet Manager' },
-  { business: 'a 200-seat family restaurant and event venue', role: 'Owner' },
-  { business: 'a private school with 650 students', role: 'Head of Facilities & Finance' },
-  { business: 'a real-estate agency with 25 agents', role: 'Managing Partner' },
-  { business: 'a garden centre with a large outdoor showroom and café', role: 'Owner' },
-  { business: 'a B2B software company with 150 employees', role: 'COO' },
-];
-
 const PRODUCTS = [
-  { product: 'LiftDeck, a car elevator that stacks two cars in one parking space', price: 'about €18,000 per unit installed, or €390 a month on lease' },
-  { product: 'an AI phone receptionist that answers and books calls 24/7', price: '€249 per month per location' },
-  { product: 'smart solar carports with EV chargers', price: 'from €45,000, with a subsidy covering up to 30%' },
-  { product: 'a customer-loyalty app with a points and referral program', price: '€1,200 setup plus €299 per month' },
-  { product: 'an autonomous floor-cleaning robot', price: '€14,500 per robot or €520 per month' },
-  { product: 'a staff scheduling and payroll platform', price: '€6 per employee per month' },
-  { product: 'a 3D virtual-tour and video studio service', price: '€900 per location, one-off' },
-  { product: 'energy-monitoring sensors that cut electricity bills', price: '€3,000 install plus a 20% share of savings in year one' },
-  { product: 'a premium coffee-machine subscription for customers and staff', price: '€180 per month per machine, beans included' },
-  { product: 'a cybersecurity monitoring service for small businesses', price: '€450 per month' },
-  { product: 'a digital signage network with dynamic pricing screens', price: '€2,000 per screen plus €40 per month' },
-  { product: 'a corporate e-bike leasing program for employees', price: 'tax-advantaged, about €0 net cost to the employer' },
+  // Software
+  { kind: 'Software', product: 'a CRM built for small sales teams', price: '€35 per user per month' },
+  { kind: 'Software', product: 'a staff scheduling and payroll platform', price: '€6 per employee per month' },
+  { kind: 'Software', product: 'a cybersecurity monitoring service', price: '€450 per month' },
+  { kind: 'Software', product: 'an AI phone receptionist that answers and books calls 24/7', price: '€249 per month per location' },
+  { kind: 'Software', product: 'an e-signature and contract workflow tool', price: '€19 per user per month' },
+  // Physical
+  { kind: 'Physical', product: 'premium vinyl and wood flooring, supplied and installed', price: 'about €65 per m², installed' },
+  { kind: 'Physical', product: 'turnkey bathroom renovations', price: 'from €9,500 per bathroom' },
+  { kind: 'Physical', product: 'solar panels with EV chargers for the car park', price: 'from €45,000, with subsidies up to 30%' },
+  { kind: 'Physical', product: 'autonomous floor-cleaning robots', price: '€14,500 per robot or €520 per month' },
+  { kind: 'Physical', product: 'ergonomic office furniture', price: 'about €1,100 per workstation' },
+  { kind: 'Physical', product: 'a premium coffee-machine subscription', price: '€180 per machine per month, beans included' },
+  // Services
+  { kind: 'Service', product: 'a performance marketing agency retainer', price: '€3,500 per month' },
+  { kind: 'Service', product: 'recruiting for hard-to-fill roles', price: '18% of first-year salary per hire' },
+  { kind: 'Service', product: 'a business insurance package', price: 'about €2,400 per year' },
+  { kind: 'Service', product: 'facility cleaning', price: '€29 per hour, 3 visits a week' },
+  { kind: 'Service', product: 'managed IT support', price: '€55 per device per month' },
 ];
 
+const INDUSTRIES = [
+  'a family-owned car dealership with three showrooms', 'a 40-room boutique hotel', 'a chain of 12 bakeries',
+  'a group of 6 dental practices', 'a logistics company running 80 delivery vans', 'a private school with 650 students',
+  'a real-estate agency with 25 agents', 'a 150-person SaaS scale-up', 'a mid-size construction company',
+  'a fashion retailer with 9 stores', 'a 40-lawyer law firm', 'a chain of 9 fitness studios',
+];
+const ROLES = ['Owner', 'CFO', 'Operations Manager', 'Purchasing Manager', 'Head of IT', 'Office Manager'];
+const DEAL_SIZES = ['small (under €5k)', 'mid-size (€5k–€50k)', 'large (over €50k)'];
+
+// Each stage sets the opening line and how far along the relationship is.
+const STAGES = [
+  { stage: 'Cold call', setup: 'This is a cold call. You have never spoken to this seller and did not expect the call.',
+    openers: ['{name} speaking. Who is this?', "Yes, hi. I've got a minute. What's this about?", '{name} here. We get a lot of sales calls, so be quick: what is it?'] },
+  { stage: 'Discovery meeting', setup: 'You agreed to a 30-minute discovery meeting after a short intro email. You know roughly what they sell.',
+    openers: ["Hi, thanks for setting this up. I've got about half an hour. Where do you want to start?", "Hello. I read your email, but remind me why we're talking."] },
+  { stage: 'Demo follow-up', setup: 'You saw a demo last week. It was interesting, but you have not decided anything.',
+    openers: ["Hi again. We had a look internally after the demo. I have a few questions, but go ahead.", "Thanks for following up. Honestly the demo was nice, but I'm not sure it's for us."] },
+  { stage: 'Price negotiation', setup: 'You like the proposal and want to buy, but you are now negotiating the price and terms.',
+    openers: ["We like the proposal. But the price needs to come down before I can sign.", "So, we'd like to move forward. Let's talk about the number, because it's too high."] },
+  { stage: 'Renewal at risk', setup: 'You are an existing customer. The contract renews next month, and you are considering not renewing.',
+    openers: ["Thanks for calling. I'll be honest: we're not sure we'll renew.", "Good timing. We're reviewing all our suppliers, and yours is on the list to cut."] },
+];
+
+// Never shown to the learner before the call: revealed in the debrief.
+const CONSTRAINTS = [
+  'The budget for this year is frozen: anything new must pay for itself within the year.',
+  'They already use a competitor, are reasonably happy with it, and switching feels like a hassle.',
+  'A business partner must approve every purchase over €2,000, and that partner distrusts new vendors.',
+  'They were burned last year by a vendor who overpromised and underdelivered.',
+  'Bad timing: it is their busiest season, with no time for an implementation.',
+];
 const PERSONALITIES = [
   'numbers-driven: you want concrete figures and payback time',
-  'friendly and chatty, but you avoid committing to anything',
+  'friendly but vague: chatty, and you avoid committing to anything',
   'risk-averse: you worry about disruption, reliability and what could go wrong',
-  'impatient and direct: you hate small talk and long monologues',
-  'curious about innovation, but burned before by a vendor who overpromised',
-  'very price-sensitive: every euro is scrutinised',
+  'impatient: you hate small talk and long monologues',
+  'a price hawk: every euro is scrutinised and you always ask for a discount',
+  'a curious innovator: you like new ideas but need to see how it works in practice',
 ];
 const GOALS = [
-  'Book an on-site visit or demo next week.',
-  'Agree to a small paid pilot.',
-  'Get a meeting that includes the other decision-maker.',
+  'Book a meeting or demo next week.',
+  'Agree on a small paid pilot.',
+  'Get a meeting that includes the decision-maker.',
   'Close a first order or a signed letter of intent.',
-  'Get permission to send a tailored proposal, with a follow-up call in the calendar.',
-];
-const OPENERS = [
-  "Hello, {name} speaking. My assistant said you wanted five minutes. Go ahead.",
-  "Yes, hi. I've got a few minutes. What's this about?",
-  "{name} here. Honestly we get a lot of sales calls, so what makes this one different?",
-  "Hi, sorry, it's busy here today. What can I do for you?",
 ];
 
 // ---------- Existing REPS scenarios (the `scenarios` object in demo.html) ----------
@@ -219,41 +236,48 @@ The learner is practising these behaviours, so make them work for it: ${x.intent
 }
 
 function generateScenario(overrides = {}) {
-  const buyer = pick(BUYERS);
-  const offer = pick(PRODUCTS);
   const who = randomPerson();
   const first = who.name.split(' ')[0];
+  const offer = pick(PRODUCTS);
+  const stage = pick(STAGES);
   return buildRandomScenario({
     name: who.name,
     gender: who.gender,
-    role: buyer.role,
-    business: buyer.business,
+    role: pick(ROLES),
+    business: pick(INDUSTRIES),
     product: offer.product,
     price: offer.price,
+    dealSize: pick(DEAL_SIZES),
+    stage: stage.stage,
     personality: pick(PERSONALITIES),
     goal: pick(GOALS),
-    opener: pick(OPENERS).replace('{name}', first),
+    constraint: pick(CONSTRAINTS),
+    opener: pick(stage.openers).replace('{name}', first),
     ...overrides,
   });
 }
 
 function buildRandomScenario(b) {
   const initials = initialsOf(b.name);
+  const stage = STAGES.find(x => x.stage === b.stage);
   return {
     random: true,
     brief: b,
-    number: 'SURPRISE PITCH',
+    number: `SURPRISE PITCH · ${b.stage.toUpperCase()}`,
     title: `Sell ${b.product.split(',')[0]} to ${b.name.split(' ')[0]}.`,
-    summary: `You are calling ${b.name}, ${b.role} of ${b.business}. You sell ${b.product} (${b.price}).`,
+    summary: `${b.stage}: you are talking to ${b.name}, ${b.role} of ${b.business}. You sell ${b.product} (${b.price}).`,
     persona: { name: b.name, gender: genderOf(b.name, b.gender || 'female'), role: `${b.role} · ${b.business}`, initials },
-    facts: [['Their business', b.business], ['You sell', b.product], ['Your price', b.price], ['Their personality', b.personality]],
+    facts: [['Stage', b.stage], ['Their business', b.business], ['You sell', b.product], ['Your price', b.price], ['Deal size', b.dealSize], ['Their personality', b.personality]],
+    hidden: b.constraint,
     objective: b.goal,
-    tips: ['Find out how their business makes money before you pitch.', 'Connect one feature to one of their real problems, with a number.', 'If it is a stretch fit, find the angle, or be honest about it.'],
+    tips: ['Find out how their business makes money before you pitch.', 'Connect one feature to one of their real problems, with a number.', 'Something is holding them back. Find out what before you push.'],
     firstMessage: b.opener,
     prompt: `You are ${b.name}, ${b.role} of ${b.business}.
 Your personality: ${b.personality}.
-A seller is calling to pitch: ${b.product}. Their price is ${b.price}.
-Before the call, silently invent 2 or 3 concrete, plausible details about your business that matter for this decision: real numbers, a current workaround, your budget situation, and who else must approve. Stay consistent with them for the whole call. Reveal them only when the seller asks good, specific questions.
+Situation: ${stage ? stage.setup : b.stage}
+The seller sells: ${b.product}. Their price is ${b.price}. The total deal under discussion is ${b.dealSize}.
+Your hidden constraint, described from the outside (never state it outright; reveal it only if the seller asks good, specific questions about what is holding you back): ${b.constraint}
+Before the call, silently invent 2 or 3 concrete, plausible details about your business that matter for this decision: real numbers, your current workaround, and who else must approve. Stay consistent with them for the whole call.
 If the product is a poor fit for your business, say so honestly unless the seller finds a credible angle. If it is a good fit, still make them earn it.`,
   };
 }
@@ -315,7 +339,7 @@ function ensureDialog() {
   d = document.createElement('dialog');
   d.id = 'voice-dialog';
   d.setAttribute('aria-labelledby', 'vp-title');
-  d.innerHTML = `<div class="vp-header"><img src="imgs/REPS_logo.png" alt="REPS" width="2086" height="754"><span class="vp-badge">VOICE PITCH · ELEVENLABS</span><button class="vp-close" type="button" aria-label="Close voice practice">×</button></div><div class="vp-body" id="vp-content"></div>`;
+  d.innerHTML = `<div class="vp-header"><img src="imgs/REPS_logo.png" alt="REPS" width="2086" height="754"><span class="vp-badge">LIVE ROLEPLAY</span><button class="vp-close" type="button" aria-label="Close voice practice">×</button></div><div class="vp-body" id="vp-content"></div>`;
   document.body.appendChild(d);
   d.querySelector('.vp-close').addEventListener('click', closeDialog);
   d.addEventListener('close', handleClosed); // Esc key
@@ -335,6 +359,7 @@ async function handleClosed() {
   state.closed = true;
   const onClose = state.onClose;
   const spoke = state.messages.some(m => m.who === 'you');
+  if (spoke) window.dispatchEvent(new CustomEvent('reps:rep-done', { detail: { key: state.key } }));
   await endCall();
   // Another REPS dialog (e.g. the practice loop) may still be open underneath.
   if (!document.querySelector('dialog[open]')) document.body.classList.remove('modal-open');
@@ -354,7 +379,7 @@ function open(key, trigger, scenario, opts = {}) {
   const d = ensureDialog();
   if (!d.open) d.showModal();
   document.body.classList.add('modal-open');
-  $('#voice-dialog .vp-badge').textContent = state.text ? 'TEXT ROLEPLAY · ELEVENLABS' : 'VOICE PITCH · ELEVENLABS';
+  $('#voice-dialog .vp-badge').textContent = state.text ? 'LIVE TEXT ROLEPLAY' : 'LIVE VOICE ROLEPLAY';
   render();
   return true;
 }
@@ -373,7 +398,7 @@ function render() {
 }
 
 function renderSetup(s) {
-  return `<div class="vp-kicker">${s.library ? "03 — VOICE PRACTICE" : "PITCH PRACTICE · VOICE"} · ${esc(s.number)}</div>
+  return `<div class="vp-kicker">${s.library ? '03 — VOICE PRACTICE' : `PITCH PRACTICE · ${state.text ? 'TEXT' : 'VOICE'}`} · ${esc(s.number)}</div>
   <h2 id="vp-title">${esc(s.title)}</h2>
   <p class="vp-lead">${esc(s.summary)} ${state.text ? 'You will chat in text with an AI buyer in real time.' : 'You will speak out loud with an AI buyer in real time. Use headphones for the best experience.'}</p>
   <div class="vp-grid">
@@ -388,7 +413,7 @@ function renderSetup(s) {
       <div class="vp-options" role="group" aria-label="Buyer difficulty">${Object.entries(DIFFICULTY).map(([k, v]) => `<button type="button" data-vp-difficulty="${k}" aria-pressed="${state.difficulty === k}">${v.label}</button>`).join('')}</div>
       <p class="vp-hint">${esc(DIFFICULTY[state.difficulty].rule)}</p>
       <div class="vp-setup-meta">
-        <span>⏱ Up to 20 minutes</span>
+        <span>⏱ Up to 15 minutes</span>
         <span>${state.text ? '💬 Live text chat' : '🎧 Best with headphones'}</span>
         <span>📝 Debrief right after</span>
       </div>
@@ -403,22 +428,29 @@ function renderSetup(s) {
 
 const BRIEF_FIELDS = [
   ['name', 'Buyer name'], ['role', 'Their role'], ['business', 'Their business'],
-  ['product', 'What you are selling'], ['price', 'Your price'], ['personality', 'Buyer personality'], ['goal', 'Your goal for the call'],
+  ['product', 'What you are selling'], ['price', 'Your price'], ['dealSize', 'Deal size', DEAL_SIZES],
+  ['stage', 'Sales stage', STAGES.map(x => x.stage)], ['personality', 'Buyer personality'], ['goal', 'Your goal for the call'],
 ];
 function renderBriefEditor(b) {
   return `<div class="vp-card">
     <div class="vp-brief-head"><h3>Your brief</h3><button class="vp-btn secondary vp-reroll" type="button" data-vp-action="reroll">🎲 New scenario</button></div>
     <p class="vp-hint">Randomly generated. Reroll it, or edit any field to set up your own situation.</p>
-    ${BRIEF_FIELDS.map(([k, label]) => `<label class="vp-field">${label}${k === 'business' || k === 'product'
-      ? `<textarea data-brief="${k}" rows="2">${esc(b[k])}</textarea>`
-      : `<input data-brief="${k}" type="text" value="${esc(b[k])}">`}</label>`).join('')}
+    ${BRIEF_FIELDS.map(([k, label, options]) => `<label class="vp-field">${label}${options
+      ? `<select data-brief="${k}">${options.map(o => `<option ${o === b[k] ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+      : k === 'business' || k === 'product'
+        ? `<textarea data-brief="${k}" rows="2">${esc(b[k])}</textarea>`
+        : `<input data-brief="${k}" type="text" value="${esc(b[k])}">`}</label>`).join('')}
+    <p class="vp-hint">The buyer also has one hidden reason to hesitate. You'll see it in the debrief.</p>
   </div>`;
 }
 
 function readBrief() {
   const b = { ...state.scenario.brief };
+  const before = b.stage;
   document.querySelectorAll('[data-brief]').forEach(el => { const v = el.value.trim(); if (v) b[el.dataset.brief] = v; });
   const first = b.name.split(' ')[0];
+  const stage = STAGES.find(x => x.stage === b.stage);
+  if (stage && b.stage !== before) b.opener = pick(stage.openers).replace('{name}', first);
   if (!b.opener.includes(first)) b.opener = b.opener.replace(/[A-Z][a-z]+ (here|speaking)/, `${first} $1`);
   return b;
 }
@@ -448,7 +480,7 @@ function renderLive(s) {
     <div class="call-top">
       <div class="call-live"><span class="call-dot"></span><span id="vp-state" role="status" aria-live="polite">${stateLabel()}</span></div>
       <h2 class="call-title" id="vp-title">${esc(s.title)}</h2>
-      <div class="call-time"><span id="vp-timer">00:00</span><span class="call-limit">/ ${fmt(MAX_CALL_SECONDS)}</span></div>
+      <div class="call-time ${state.warned ? 'warn' : ''}" id="vp-time"><span id="vp-timer">00:00</span><span class="call-limit">/ ${fmt(MAX_CALL_SECONDS)}</span></div>
     </div>
     <div class="call-body">
       <section class="call-main" aria-label="Call">
@@ -458,6 +490,7 @@ function renderLive(s) {
             <span class="avatar-ring r1" aria-hidden="true"></span><span class="avatar-ring r2" aria-hidden="true"></span>
             <div class="avatar" id="vp-avatar">${esc(s.persona.initials)}</div>
           </div>
+          <div class="call-toast ${state.warned ? 'show' : ''}" role="status">⏳ 2 minutes left. Time to ask for the next step.</div>
           <div class="tile-typing" aria-hidden="true"><i></i><i></i><i></i></div>
           <div class="tile-label"><span class="eq" id="vp-eq-them" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>${esc(s.persona.name)}</strong><span>${esc(s.persona.role)}</span></div>
           ${state.text ? '' : `<div class="tile-caption ${state.captions === false ? 'off' : ''}" id="vp-caption" aria-hidden="true"></div>`}
@@ -548,6 +581,8 @@ function renderDebrief(s) {
     <div class="vp-card"><h3>Keep doing</h3><p class="vp-hint" style="font-size:.95rem">${strongest ? esc(strongest.label) + '. ' + esc(strongest.why) : 'Every rep counts. You showed up and pitched out loud.'}</p></div>
     <div class="vp-card"><h3>Focus for the next rep</h3><p class="vp-hint" style="font-size:.95rem">${nextFocus ? esc(nextFocus.label) + '. ' + esc(nextFocus.why) : 'Raise the difficulty and see if the structure holds under pressure.'}${a.longest > 90 ? ' Also: your longest turn ran ' + a.longest + ' words. Try to keep each turn under about 60.' : ''}</p></div>
   </div>
+  ${s.hidden ? `<div class="vp-reveal"><span>What ${esc(s.persona.name.split(' ')[0])} was holding back</span><p>${esc(s.hidden)}</p></div>` : ''}
+  ${pilotOfferHtml()}
   <details class="vp-full"><summary>Full transcript</summary><div class="vp-transcript">${transcriptHtml()}</div></details>
   <p class="vp-hint" style="margin-top:14px">Debrief is generated locally from the transcript using simple heuristics. It is a prompt for reflection, not an assessment.</p>
   <div class="vp-actions"><button class="vp-btn" type="button" data-vp-action="retry">Try again</button>${s.random ? `<button class="vp-btn secondary" type="button" data-vp-action="new">🎲 New scenario</button>` : ''}${state.difficulty !== 'tough' ? `<button class="vp-btn secondary" type="button" data-vp-action="harder">Try a tougher buyer</button>` : ''}<button class="vp-btn secondary" type="button" data-vp-action="close">${state.onClose ? 'Continue to re-assess →' : 'Back to scenarios'}</button></div>`;
@@ -573,6 +608,18 @@ function rerenderLive() {
   renderTranscript();
   const input = $('#vp-chat-input');
   if (input) input.value = draft;
+}
+
+// Idea #25: turn a good moment into a team pilot conversation.
+function pilotOfferHtml() {
+  const cfg = window.REPS_VOICE_CONFIG || {};
+  const url = cfg.pilotUrl || 'index.html#get-involved';
+  return `<div class="vp-pilot">
+    <div><span class="vp-pilot-kicker">FOR YOUR TEAM</span><h3>Run a 30-day pilot with your team</h3>
+    <p>Your deals, your playbook, a few minutes a day. You get a progress report per rep at the end.</p></div>
+    <div class="vp-pilot-actions"><a class="vp-btn" href="${esc(url)}" target="_top" rel="noopener">Book a pilot call →</a>
+    <a class="vp-pilot-link" href="scan-landing.html" target="_top">Or start with the Sales Excellence Scan</a></div>
+  </div>`;
 }
 
 async function onDialogClick(e) {
@@ -654,9 +701,11 @@ async function startCall() {
         // Dropped before the learner spoke: show the reason on the setup screen instead of an empty debrief.
         if (!said && details.reason !== 'user' && (why || details.reason === 'error')) {
           state.stage = 'setup';
+          // Technical reason for developers; a calm message for the learner.
+          console.warn('[REPS voice] session closed:', why, details.closeCode);
           state.error = /override/i.test(why)
-            ? `ElevenLabs rejected the call: "${why}" Open your agent in ElevenAgents → Security → Overrides, turn on "First message" and "System prompt", save, then try again.`
-            : `The call was closed by ElevenLabs${why ? `: "${why}"` : ''}${details.closeCode ? ` (code ${details.closeCode})` : ''}.`;
+            ? 'The practice partner could not take this scenario right now. Please try again in a moment.'
+            : 'The call dropped before it started. Please check your connection and try again.';
         } else {
           state.stage = 'debrief';
         }
@@ -688,7 +737,7 @@ async function startCall() {
     stopTicker();
     state.stage = 'setup';
     state.status = 'disconnected';
-    state.error = `Could not start the call: ${err?.message || err}. Check the agent ID, and that prompt and first-message overrides are enabled in the agent's Security settings.`;
+    state.error = 'The call could not start. Please check your connection and microphone, then try again.';
     render();
   }
 }
@@ -713,7 +762,16 @@ function startTicker() {
   stopTicker();
   state.timer = setInterval(() => {
     const el = $('#vp-timer');
-    if (el && state.startedAt) el.textContent = fmt(Math.floor((Date.now() - state.startedAt) / 1000));
+    if (!state.startedAt) return;
+    const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+    if (el) el.textContent = fmt(elapsed);
+    if (elapsed >= WARN_AT_SECONDS && !state.warned) {
+      state.warned = true;
+      $('#vp-time')?.classList.add('warn');
+      $('.call-toast')?.classList.add('show');
+      // Let the buyer steer toward a natural close too.
+      try { state.conversation?.sendContextualUpdate('Two minutes remain in this call. If the learner has not proposed a next step yet, start steering naturally toward wrapping up.'); } catch { /* best effort */ }
+    }
   }, 500);
   const tick = () => {
     const stage = $('#vp-stage');

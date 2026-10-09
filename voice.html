@@ -83,7 +83,7 @@ body.embedded .app{padding-top:28px}body.embedded .header{margin-bottom:28px}
 <div class="step" id="confirm">
   <div class="step-heading"><h2>Ready to step into the conversation?</h2><p>Check the setup below. The AI buyer will use this confirmed scenario when the session starts.</p></div>
   <div class="summary" id="summary"></div>
-  <div class="note"><strong>What happens next?</strong><br>Your confirmed scenario is passed to the ElevenLabs agent as the buyer's roleplay context. The buyer stays in character and uses the configured objections naturally.</div>
+  <div class="note"><strong>What happens next?</strong><br>Your confirmed scenario becomes the AI buyer's briefing. The buyer stays in character and uses the configured objections naturally.</div>
   <div class="actions"><div class="buttons"><button class="btn secondary" id="edit" type="button">← Edit scenario</button></div><div class="buttons"><button class="btn primary" id="start" type="button">Start live roleplay →</button></div></div>
 </div>
 
@@ -319,7 +319,7 @@ function firstMessage(){return "Thanks for making the time. I have about thirty 
 async function startSession(){
   if(conversation)return;
   clearError();
-  if(!CONFIG.AGENT_ID&&CONFIG.AUTH_MODE!=="signed-url"){setStatus("error","Agent configuration required");error("No ElevenLabs agent configured. Put ELEVENLABS_AGENT_ID in demo-reps/.env and start the site with node voice-server.mjs, or open this page with ?agent=agent_...");return}
+  if(!CONFIG.AGENT_ID&&CONFIG.AUTH_MODE!=="signed-url"){setStatus("error","Agent configuration required");console.warn("[REPS] No agent configured: set ELEVENLABS_AGENT_ID in .env or voice-config.js");error("Live practice is not available on this site right now.");return}
   $("transcript").replaceChildren();
   try{
     setStatus("connecting",TEXT_MODE?"Connecting…":"Requesting microphone access…");
@@ -337,13 +337,13 @@ async function startSession(){
         conversation=null;$("orb").classList.remove("speaking");$("mic").disabled=false;$("stop").disabled=true;setChat(false);
         const why=details.closeReason||details.message||"";
         if(details.reason==="user"||!why){setStatus("disconnected","Session ended");return}
-        setStatus("error","Session closed by ElevenLabs");
-        error(/override/i.test(why)?`ElevenLabs rejected the session: "${why}" Enable the "First message" and "System prompt"${TEXT_MODE?' and "Text only"':""} overrides in the agent's Security settings.`:`ElevenLabs closed the session: "${why}"`);
+        setStatus("error","Session ended unexpectedly");console.warn("[REPS] session closed:",why);
+        error("The roleplay could not continue. Please try again in a moment.");
       },
       onStatusChange({status}){if(status==="connecting")setStatus("connecting","Connecting…");if(status==="connected")setStatus("connected",TEXT_MODE?"Connected · your turn to type":"Connected · listening");if(status==="disconnected")setStatus("disconnected","Disconnected")},
       onModeChange({mode}){if(TEXT_MODE)return;if(mode==="speaking"){$("orb").classList.add("speaking");setStatus("connected","Buyer is speaking")}else{$("orb").classList.remove("speaking");setStatus("connected","Listening")}},
       onMessage(m){const who=(m.role||m.source)==="user"?"you":"buyer";if(TEXT_MODE&&who==="you")return;addMsg(who,m.message)},
-      onError(e){console.error(e);setStatus("error","Connection error");error("The live roleplay could not be started. Check the ElevenLabs agent configuration and Security settings.")}
+      onError(e){console.error(e);setStatus("error","Connection error");error("The live roleplay could not be started. Please try again in a moment.")}
     };
     if(CONFIG.AUTH_MODE==="signed-url"){
       const r=await fetch(CONFIG.SIGNED_URL_ENDPOINT,{credentials:"include"});if(!r.ok)throw Error("Signed URL request failed");const body=await r.text();try{options.signedUrl=JSON.parse(body).signed_url}catch{options.signedUrl=body}delete options.agentId;
@@ -356,7 +356,7 @@ async function startSession(){
     console.error(e);conversation=null;$("mic").disabled=false;$("stop").disabled=true;
     setStatus("error","Could not start roleplay");
     if(String(e?.message).toLowerCase().includes("permission"))error("Microphone access was denied. Allow microphone access for this page, then try again.");
-    else error(`The live roleplay could not be started: ${e?.message||e}. Check your ElevenLabs configuration, agent ID, and browser permissions.`);
+    else error("The live roleplay could not be started. Please check your connection and microphone, then try again.");
   }
 }
 async function stopSession(){
@@ -393,7 +393,7 @@ if(TEXT_MODE){
   document.querySelector("#practice h2").textContent="Live chat roleplay";
   $("mic").textContent="Start conversation";
   $("chatForm").hidden=false;
-  document.querySelector("#confirm .note").innerHTML="<strong>What happens next?</strong><br>Your confirmed scenario is passed to the ElevenLabs agent as the buyer's roleplay context. You chat in text; the buyer stays in character and uses the configured objections naturally.";
+  document.querySelector("#confirm .note").innerHTML="<strong>What happens next?</strong><br>Your confirmed scenario becomes the AI buyer's briefing. You chat in text; the buyer stays in character and uses the configured objections naturally.";
 }
 const presetKey=PARAMS.get("scenario");
 if(PARAMS.get("source")==="library"&&presetKey&&libraryScenarios[presetKey]){
