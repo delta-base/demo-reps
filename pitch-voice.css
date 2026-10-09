@@ -211,3 +211,22 @@ details.vp-full .vp-transcript{height:auto;max-height:360px;margin-top:12px}
 .path-day.next .path-go{border-color:#f87000;background:#f87000;color:#fff}
 .path-complete{margin-top:12px;color:var(--green);font-weight:700;font-size:.88rem}
 @media(max-width:1000px){.paths-grid{grid-template-columns:1fr}}
+
+/* Pause */
+.call[data-status="paused"] .call-dot{background:#f5b84b;animation:none}
+.pause-veil{position:absolute;inset:0;z-index:3;display:grid;place-items:center;background:#0a121bcc;backdrop-filter:blur(6px)}
+.pause-card{display:grid;justify-items:center;gap:8px;padding:26px 30px;text-align:center}
+.pause-card strong{color:#fff;font-size:1.3rem;letter-spacing:-.02em}
+.pause-card p{margin:0 0 8px;color:#a9b6c8;font-size:.92rem;max-width:300px}
+.pause-icon{display:grid;place-items:center;width:58px;height:58px;border-radius:50%;background:#ffffff14}
+.pause-icon svg{width:24px;height:24px;fill:#ffd08a}
+.pause-card .vp-btn svg{width:16px;height:16px;fill:currentColor}
+.ctl.on{background:#f5b84b;color:#1b1203}
+.ctl[disabled]{opacity:.5;cursor:default;transform:none}
+.ctl svg path[d^="M8 5.5"],.ctl svg rect[x="6.5"],.ctl svg rect[x="13.9"]{fill:currentColor;stroke:none}
+/* Case facts on the setup screen */
+.vp-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.vp-facts div{padding:10px 12px;border-radius:10px;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+.vp-facts dt{color:var(--muted);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.vp-facts dd{margin:2px 0 0;font-size:.88rem;font-weight:600;line-height:1.35}
+@media(max-width:560px){.vp-facts{grid-template-columns:1fr}}

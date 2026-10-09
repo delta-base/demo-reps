@@ -95,6 +95,7 @@ export const PITCH_SCENARIOS = {
     summary: 'You catch a VP of Sales between meetings. Earn attention fast, connect to their world, and leave with a next step.',
     tags: ['Hook', 'Relevance', 'Clear ask'],
     persona: { name: 'Maya Laurent', gender: 'female', role: 'VP Sales, mid-market SaaS (120 reps)', initials: 'ML' },
+    facts: [['Their position', 'VP Sales'], ['Their company', 'Mid-market SaaS company with 120 sales reps'], ['You sell', 'A sales practice and coaching platform'], ['Deal on the table', 'A 30-minute discovery call, first']],
     objective: 'Within about two minutes, earn enough interest to book a 30-minute discovery call.',
     tips: ['Open with something about their world, not your company history.', 'One sharp problem, one outcome with a number.', 'End with a specific, low-friction ask.'],
     firstMessage: "Hi, sorry, I've only got a couple of minutes before my next call. What did you want to talk about?",
@@ -108,6 +109,7 @@ The seller sells a sales practice and coaching platform.`,
     summary: 'The CFO joins late and asks one thing: why should we spend money on this? Translate your pitch into business impact.',
     tags: ['ROI framing', 'Cost of inaction', 'Proof'],
     persona: { name: 'Thomas Verbeke', gender: 'male', role: 'CFO, logistics group (€300M revenue)', initials: 'TV' },
+    facts: [['Their position', 'CFO (Chief Financial Officer)'], ['Their company', 'Logistics group, €300M revenue'], ['You sell', 'A sales practice and coaching platform'], ['Deal on the table', 'About €90k per year for the whole sales team']],
     objective: 'Get the CFO to agree that the business case is worth building together, with their numbers.',
     tips: ['Ask what the board measures before you quote ROI.', 'Make the cost of doing nothing explicit.', 'Use a proof point, then propose building the case together.'],
     firstMessage: "I'm told you have ten minutes. Honestly, every vendor says they'll save us money. Why should I spend budget on this right now?",
@@ -122,6 +124,7 @@ The seller sells a sales practice and coaching platform.`,
     summary: 'The prospect is happy enough with an incumbent. Find the gap they tolerate, differentiate without bashing, and earn a pilot.',
     tags: ['Discovery', 'Differentiation', 'Objection handling'],
     persona: { name: 'Priya Nair', gender: 'female', role: 'Head of Enablement, fintech scale-up', initials: 'PN' },
+    facts: [['Their position', 'Head of Sales Enablement'], ['Their company', 'Fintech scale-up, 400 people'], ['You sell', 'A sales practice platform with AI roleplay'], ['Deal on the table', 'A pilot with one sales team, then a full rollout']],
     objective: 'Uncover a gap in the current setup and agree a small pilot or comparison.',
     tips: ['Acknowledge the incumbent, then get curious about what it does not do.', 'Differentiate on their gap, not your feature list.', 'Propose a low-risk way to compare.'],
     firstMessage: "Thanks for reaching out, but to be upfront, we already have a training platform and it's fine. So what's different about yours?",
@@ -209,11 +212,26 @@ function libraryScenarios() {
   try { return typeof scenarios === 'object' && scenarios ? scenarios : {}; } catch { return {}; }
 }
 
+// What the learner needs to know about each REPS scenario: who, where, what, how much.
+const LIB_DETAILS = {
+  discount: { role: 'Head of Operations', company: 'A 300-person logistics company', sell: 'A workflow automation platform', deal: '€85k per year' },
+  procurement: { role: 'Procurement Lead', company: 'A national retail chain', sell: 'An inventory forecasting platform', deal: '€120k per year, invoiced quarterly' },
+  gap: { role: 'Operations Director', company: 'A manufacturer with 4 plants', sell: 'A workflow platform for operations teams', deal: '€45k per year' },
+  challenger: { role: 'VP Sales', company: 'A software company with 60 sales reps', sell: 'A sales enablement and practice platform', deal: '€70k per year' },
+  objection: { role: 'Head of Customer Success', company: 'A B2B SaaS company with 8,000 customers', sell: 'A customer-success platform', deal: '€95k per year' },
+  margin: { role: 'Procurement Director', company: 'An industrial wholesaler', sell: 'A procurement analytics platform', deal: '€240k per year' },
+  stakeholders: { role: 'Sales Operations Manager (your champion)', company: 'A 1,200-person insurance company', sell: 'A sales performance platform', deal: '€150k per year' },
+  commitment: { role: 'Business Unit Director', company: 'A regional bank', sell: 'A productivity platform for business units', deal: '€60k per year' },
+  fundraise: { role: 'Partner at a venture capital fund', company: 'Your seed-stage startup', sell: 'Equity in your company (Series A)', deal: '€3M investment', offerLabel: 'You offer' },
+  control: { role: 'Managing Director of a strategic partner', company: 'Your growing startup', sell: 'An exclusive distribution partnership', deal: 'Three-year partnership', offerLabel: 'You offer' },
+};
+
 function fromLibrary(key, intention) {
   const x = libraryScenarios()[key];
   if (!x) return null;
   const strip = t => String(t).replace(/[“”"]/g, '').trim();
   const who = randomPerson();
+  const d = LIB_DETAILS[key] || { role: x.role, company: '', sell: '', deal: '' };
   // Scripted replies tell the agent how this counterpart reacts and what sits behind their position.
   const reactions = (x.turns || []).flatMap(turn => turn.map(c => `- If the learner says something like "${strip(c.text)}" (${['weak', 'partial', 'strong'][c.quality]} move), you would react like: "${strip(c.reply)}"`));
   return {
@@ -221,12 +239,14 @@ function fromLibrary(key, intention) {
     number: `${x.audience} SCENARIO`,
     title: strip(x.title),
     summary: x.context,
-    persona: { name: who.name, gender: who.gender, role: x.role, initials: initialsOf(who.name) },
+    persona: { name: who.name, gender: who.gender, role: d.role, initials: initialsOf(who.name) },
+    facts: [['Their position', d.role], ['Their company', d.company], [d.offerLabel || 'You sell', d.sell], ['Deal on the table', d.deal]].filter(([, v]) => v),
     objective: x.intentions[intention]?.label || x.intentions.map(i => i.label).join(' '),
     tips: x.intentions.map(i => i.next),
     intentions: x.intentions,
     firstMessage: strip(x.opening),
-    prompt: `You are ${who.name}, the ${x.role} in this conversation.
+    prompt: `You are ${who.name}, ${d.role}${d.company && !/^Your /.test(d.company) ? ` at ${d.company.replace(/^A /, 'a ')}` : ''}. In this conversation you are the ${x.role}.
+${d.sell ? `What is on the table: ${d.sell}, ${d.deal}.` : ''}
 The learner's situation (from their side): ${x.context}
 You open with: "${strip(x.opening)}"
 How you react to different moves. Use these as character guidance, not a script. Improvise naturally beyond them and keep your underlying concern consistent:
@@ -267,7 +287,7 @@ function buildRandomScenario(b) {
     title: `Sell ${b.product.split(',')[0]} to ${b.name.split(' ')[0]}.`,
     summary: `${b.stage}: you are talking to ${b.name}, ${b.role} of ${b.business}. You sell ${b.product} (${b.price}).`,
     persona: { name: b.name, gender: genderOf(b.name, b.gender || 'female'), role: `${b.role} · ${b.business}`, initials },
-    facts: [['Stage', b.stage], ['Their business', b.business], ['You sell', b.product], ['Your price', b.price], ['Deal size', b.dealSize], ['Their personality', b.personality]],
+    facts: [['Their position', b.role], ['Their company', b.business.replace(/^a /, 'A ')], ['Stage', b.stage], ['You sell', b.product.replace(/^(a|an) /, m => m[0].toUpperCase() + m.slice(1))], ['Your price', b.price], ['Deal size', b.dealSize], ['Their personality', b.personality]],
     hidden: b.constraint,
     objective: b.goal,
     tips: ['Find out how their business makes money before you pitch.', 'Connect one feature to one of their real problems, with a number.', 'Something is holding them back. Find out what before you push.'],
@@ -404,6 +424,7 @@ function renderSetup(s) {
   <div class="vp-grid">
     ${s.random ? renderBriefEditor(s.brief) : `<div class="vp-card">
       <div class="vp-persona"><span class="vp-avatar">${esc(s.persona.initials)}</span><div><strong>${esc(s.persona.name)}</strong><small>${esc(s.persona.role)}</small></div></div>
+      ${s.facts?.length ? `<dl class="vp-facts">${s.facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
       <div class="vp-objective"><strong>Your goal:</strong> ${esc(s.objective)}</div>
       <h3 style="margin-top:18px">Before you start</h3>
       <ul>${s.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -460,15 +481,17 @@ const ICON = {
   micOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.5V6a3 3 0 0 0-5.6-1.5M9 9v2a3 3 0 0 0 4.7 2.5M5.5 11a6.5 6.5 0 0 0 10.3 5.3M18.5 11c0 .8-.1 1.5-.4 2.2M12 17.5V21M4 4l16 16"/></svg>',
   cc: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17 10.2a2.4 2.4 0 1 0 0 3.6"/></svg>',
   panel: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M14.5 4v16"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>',
   end: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 14.5c4.7-4.3 12.3-4.3 17 0l-1.8 2.3a1 1 0 0 1-1.3.2l-2.3-1.4a1 1 0 0 1-.5-.9v-1.8a10.6 10.6 0 0 0-5.2 0v1.8a1 1 0 0 1-.5.9L6.6 17a1 1 0 0 1-1.3-.2z"/></svg>',
 };
 
 function caseHtml(s) {
   const facts = s.facts || [];
   return `<div class="cs-person"><span class="cs-avatar" style="--hue:${hueOf(s.persona.name)}">${esc(s.persona.initials)}</span><div><strong>${esc(s.persona.name)}</strong><small>${esc(s.persona.role)}</small></div></div>
+    ${facts.length ? `<dl class="cs-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
     <div class="cs-block cs-goal"><span>Your goal</span><p>${esc(s.objective)}</p></div>
     <div class="cs-block"><span>Situation</span><p>${esc(s.summary)}</p></div>
-    ${facts.length ? `<dl class="cs-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
     <div class="cs-block"><span>Moves to try</span><ul>${s.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
     <div class="cs-chip">${esc(DIFFICULTY[state.difficulty].label)} buyer${state.voice ? ` · voice ${esc(state.voice.name)}` : ''}</div>`;
 }
@@ -491,10 +514,11 @@ function renderLive(s) {
             <div class="avatar" id="vp-avatar">${esc(s.persona.initials)}</div>
           </div>
           <div class="call-toast ${state.warned ? 'show' : ''}" role="status">⏳ 2 minutes left. Time to ask for the next step.</div>
+          ${state.paused ? `<div class="pause-veil"><div class="pause-card"><span class="pause-icon">${ICON.pause}</span><strong>Call paused</strong><p>${esc(s.persona.name.split(' ')[0])} is waiting. The timer is stopped.${state.resumeFailed ? ' Reconnecting failed, please try again.' : ''}</p><button type="button" class="vp-btn" data-vp-action="resume">${ICON.play} Resume call</button></div></div>` : ''}
           <div class="tile-typing" aria-hidden="true"><i></i><i></i><i></i></div>
           <div class="tile-label"><span class="eq" id="vp-eq-them" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>${esc(s.persona.name)}</strong><span>${esc(s.persona.role)}</span></div>
           ${state.text ? '' : `<div class="tile-caption ${state.captions === false ? 'off' : ''}" id="vp-caption" aria-hidden="true"></div>`}
-          ${state.text ? '' : `<div class="tile tile-you ${state.muted ? 'muted' : ''}" id="vp-you">
+          ${state.text ? '' : `<div class="tile tile-you ${state.paused ? 'muted' : ''}" id="vp-you">
             <div class="you-avatar">You</div>
             <div class="tile-label small"><span class="eq" id="vp-eq-you" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>You</strong><span class="you-muted">${ICON.micOff}</span></div>
           </div>`}
@@ -513,7 +537,7 @@ function renderLive(s) {
       </aside>
     </div>
     <div class="call-controls">
-      ${state.text ? '' : `<button type="button" class="ctl ${state.muted ? 'off' : ''}" data-vp-action="mute" aria-pressed="${!!state.muted}" title="${state.muted ? 'Unmute' : 'Mute'}">${state.muted ? ICON.micOff : ICON.mic}<span>${state.muted ? 'Unmute' : 'Mute'}</span></button>
+      ${state.text ? '' : `<button type="button" class="ctl ${state.paused ? 'on' : ''}" data-vp-action="${state.paused ? 'resume' : 'pause'}" title="${state.paused ? 'Resume the call' : 'Pause the call: the buyer waits, the timer stops'}">${state.paused ? ICON.play : ICON.pause}<span>${state.paused ? 'Resume' : 'Pause'}</span></button>
       <button type="button" class="ctl ${state.captions === false ? 'off' : ''}" data-vp-action="captions" aria-pressed="${state.captions !== false}" title="Captions">${ICON.cc}<span>Captions</span></button>`}
       <button type="button" class="ctl ${state.panel === false ? 'off' : ''}" data-vp-action="panel" aria-pressed="${state.panel !== false}" title="Case details">${ICON.panel}<span>Case</span></button>
       <button type="button" class="ctl ctl-end" data-vp-action="end" title="End and get your debrief">${ICON.end}<span>${state.text ? 'End chat' : 'End call'} & debrief</span></button>
@@ -523,7 +547,8 @@ function renderLive(s) {
 
 function stateLabel() {
   const first = state.scenario.persona.name.split(' ')[0];
-  if (state.status === 'connecting') return `Calling ${first}…`;
+  if (state.paused) return 'Paused';
+  if (state.status === 'connecting') return state.sessionSeq > 1 ? 'Reconnecting…' : `Calling ${first}…`;
   if (state.status !== 'connected') return state.text ? 'Chat ended' : 'Call ended';
   if (state.text) return state.waiting ? `${first} is typing…` : 'Live · your turn';
   return state.mode === 'speaking' ? `${first} is speaking` : 'Live · listening to you';
@@ -558,7 +583,7 @@ function syncLiveState() {
 
 function renderDebrief(s) {
   const a = analyse(state);
-  const dur = Math.round((state.endedAt - (state.startedAt || state.endedAt)) / 1000);
+  const dur = Math.max(0, Math.round((state.endedAt - (state.startedAt || state.endedAt) - (state.pausedMs || 0)) / 1000));
   const strongest = a.checks.find(c => c.ok);
   const nextFocus = a.checks.find(c => !c.ok);
   if (!a.userTurns.length) {
@@ -632,6 +657,8 @@ async function onDialogClick(e) {
   if (action === 'start') startCall();
   else if (action === 'end') { await endCall(); state.stage = 'debrief'; render(); }
   else if (action === 'mute') { state.muted = !state.muted; state.conversation?.setMicMuted(state.muted); rerenderLive(); }
+  else if (action === 'pause') pauseCall();
+  else if (action === 'resume') { state.resumeFailed = false; resumeCall(); }
   else if (action === 'captions') { state.captions = state.captions === false; rerenderLive(); }
   else if (action === 'panel') { state.panel = state.panel === false; rerenderLive(); }
   else if (action === 'reroll') { state.scenario = generateScenario(); state.error = null; render(); }
@@ -671,29 +698,76 @@ async function startCall() {
   state.stage = 'live';
   state.status = 'connecting';
   state.messages = [];
+  state.target = target;
+  state.pausedMs = 0;
   render();
+  await openSession(false);
+}
 
+// Seconds of actual conversation (pauses excluded).
+function talkSeconds(now = Date.now()) {
+  if (!state.startedAt) return 0;
+  const pausing = state.paused && state.pausedAt ? now - state.pausedAt : 0;
+  return Math.max(0, Math.floor((now - state.startedAt - (state.pausedMs || 0) - pausing) / 1000));
+}
+
+// Pause hangs up the line (no silence prompts, no talk time used); resume opens a fresh
+// session that carries the conversation so far, with the same persona and voice.
+async function pauseCall() {
+  if (!state.conversation || state.paused) return;
+  if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
+  state.modeSince = null;
+  state.paused = true;
+  state.pausedAt = Date.now();
+  state.status = 'paused';
+  state.waiting = false;
+  const c = state.conversation;
+  state.conversation = null;
+  rerenderLive();
+  try { await c.endSession(); } catch { /* already closed */ }
+}
+
+async function resumeCall() {
+  if (!state.paused) return;
+  state.pausedMs += Date.now() - state.pausedAt;
+  state.paused = false;
+  state.pausedAt = null;
+  state.status = 'connecting';
+  rerenderLive();
+  await openSession(true);
+}
+
+async function openSession(resume) {
+  const s = state.scenario;
+  const seq = state.sessionSeq = (state.sessionSeq || 0) + 1;
+  const history = state.messages.map(m => `${m.who === 'you' ? 'Learner' : 'You'}: ${m.text}`).join('\n');
+  const resumeNote = resume
+    ? `\n\nThe call was briefly paused by the learner and is now resuming. Continue naturally from where you left off. Do not greet again, do not recap, and do not comment on the pause.\nConversation so far:\n${history}`
+    : '';
   try {
     if (!Conversation) ({ Conversation } = await import(SDK_URL));
+    const target = resume && state.target?.signedUrl ? await getSessionTarget() : state.target; // signed URLs are single-use
     const conversation = await Conversation.startSession({
       ...target,
       textOnly: state.text,
       overrides: {
         agent: {
-          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}` },
-          firstMessage: s.firstMessage,
+          prompt: { prompt: `${s.prompt}\n\nDifficulty: ${DIFFICULTY[state.difficulty].rule}\n${PERSONA_RULES}${state.text ? '\n- This conversation happens in a text chat, not on the phone.' : ''}${resumeNote}` },
+          firstMessage: resume ? 'Okay, I\'m back. Go ahead.' : s.firstMessage,
         },
         ...(state.text ? { conversation: { textOnly: true } } : { tts: { voiceId: state.voice.id } }),
       },
       onConnect: () => {
+        if (seq !== state.sessionSeq) return;
         state.status = 'connected';
-        state.startedAt = Date.now();
+        if (!state.startedAt) state.startedAt = Date.now();
         state.modeSince = Date.now();
-        startTicker();
+        if (!state.timer) startTicker();
         syncLiveState();
       },
       onDisconnect: (details = {}) => {
-        if (state.stage !== 'live') return;
+        // Ignore the hang-up we cause when pausing, and stale sessions.
+        if (seq !== state.sessionSeq || state.paused || state.stage !== 'live') return;
         finishTiming();
         state.status = 'disconnected';
         const said = state.messages.some(m => m.who === 'you');
@@ -712,12 +786,14 @@ async function startCall() {
         render();
       },
       onModeChange: ({ mode }) => {
+        if (seq !== state.sessionSeq) return;
         if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
         state.mode = mode;
         state.modeSince = Date.now();
         syncLiveState();
       },
       onMessage: (m) => {
+        if (seq !== state.sessionSeq) return;
         const role = m.role || m.source;
         const text = (m.message || '').trim();
         if (!text || (state.text && role === 'user')) return; // typed messages are added on send
@@ -726,14 +802,19 @@ async function startCall() {
         renderTranscript();
       },
       onError: (message) => {
+        if (seq !== state.sessionSeq) return;
         console.error('[REPS voice]', message);
         state.error = typeof message === 'string' ? message : 'The voice connection ran into a problem.';
       },
     });
+    if (seq !== state.sessionSeq || state.paused || state.stage !== 'live') { try { await conversation.endSession(); } catch { /* closed */ } return; }
     state.conversation = conversation;
-    if (state.muted) conversation.setMicMuted(true);
   } catch (err) {
     console.error('[REPS voice]', err);
+    if (resume) { // keep the conversation; let the learner try resuming again
+      state.paused = true; state.pausedAt = Date.now(); state.status = 'paused'; state.resumeFailed = true; rerenderLive();
+      return;
+    }
     stopTicker();
     state.stage = 'setup';
     state.status = 'disconnected';
@@ -745,6 +826,8 @@ async function startCall() {
 function finishTiming() {
   if (state.mode === 'listening' && state.modeSince) state.listeningMs += Date.now() - state.modeSince;
   state.modeSince = null;
+  if (state.paused && state.pausedAt) { state.pausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
+  state.paused = false;
   state.endedAt = Date.now();
   stopTicker();
 }
@@ -763,8 +846,12 @@ function startTicker() {
   state.timer = setInterval(() => {
     const el = $('#vp-timer');
     if (!state.startedAt) return;
-    const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+    const elapsed = talkSeconds();
     if (el) el.textContent = fmt(elapsed);
+    if (elapsed >= MAX_CALL_SECONDS && state.stage === 'live') {
+      endCall().then(() => { state.stage = 'debrief'; render(); });
+      return;
+    }
     if (elapsed >= WARN_AT_SECONDS && !state.warned) {
       state.warned = true;
       $('#vp-time')?.classList.add('warn');
