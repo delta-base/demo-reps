@@ -1,9 +1,0 @@
-# ElevenLabs settings for voice pitch practice. Copy this file to .env and fill it in.
-# Never commit .env.
-
-# The agent's ID, from elevenlabs.io → ElevenAgents → your agent (starts with agent_)
-ELEVENLABS_AGENT_ID=agent_2501m40w5dq4ep5vyz7yq2t64gge
-
-# Optional: only needed if the agent is private (Security → "Enable authentication").
-# Create one at elevenlabs.io → Developers → API Keys. It needs ElevenAgents access.
-ELEVENLABS_API_KEY=sk_9d7f922a46a38f5c771854719c545f06d9f623ad7f03f705

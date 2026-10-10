@@ -23,6 +23,20 @@ textarea,input[type=text]{width:100%;border:1px solid #c9ccd5;border-radius:13px
 .summary{border-top:1px solid var(--line)}.summary-item{display:grid;grid-template-columns:170px 1fr;gap:24px;padding:22px 0;border-bottom:1px solid var(--line)}.summary-label{color:var(--navy);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.summary-value{white-space:pre-wrap;font-size:14px;line-height:1.6}.summary-objections{display:grid;gap:7px}.summary-objection{padding:10px 12px;border-radius:9px;background:#f7f8fa;font-size:13px}.note{margin-top:30px;padding:17px 19px;border-radius:13px;background:#f7f8fc;color:var(--muted);font-size:12px;line-height:1.6}
 .voice{text-align:center;padding:25px 0 8px}.orb{width:104px;height:104px;margin:8px auto 28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#33379b,var(--navy));display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 0 0 14px rgba(9,11,82,.045),0 20px 55px rgba(9,11,82,.16)}.orb.speaking{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{transform:scale(1.05);box-shadow:0 0 0 22px rgba(9,11,82,.05),0 24px 65px rgba(9,11,82,.18)}}.orb svg{width:32px}.voice h2{margin:0;color:var(--navy);font-size:34px;letter-spacing:-.03em}.status{margin-top:10px;color:var(--muted);font-size:14px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#b8bac3;margin-right:7px}.dot.connected{background:var(--green)}.dot.error{background:var(--red)}.session-info{max-width:650px;margin:40px auto 0;padding:20px;border:1px solid var(--line);border-radius:15px;text-align:left}.session-info-title{margin-bottom:6px;color:var(--navy);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.session-info p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}.session-actions{display:flex;justify-content:center;gap:10px;margin-top:30px}.alert{display:none;max-width:650px;margin:22px auto 0;padding:14px 16px;border:1px solid #ecc9c2;border-radius:12px;background:#fff4f1;color:var(--red);text-align:left;font-size:12px;line-height:1.5}.alert.show{display:block}
 @media(max-width:720px){.app{width:calc(100% - 24px);padding-top:38px}.header{margin-bottom:38px}.header p{font-size:15px}.progress-step span:last-child{display:none}.progress-line{width:25px}.panel{padding:25px 19px;border-radius:19px}.form-grid{grid-template-columns:1fr;gap:27px}.field.full{grid-column:auto}.summary-item{grid-template-columns:1fr;gap:7px}.actions{flex-direction:column-reverse;align-items:stretch}.buttons{width:100%;display:grid;grid-template-columns:1fr}.btn{width:100%}.session-actions{flex-direction:column}.session-actions .btn{width:100%}}
+
+.transcript{display:flex;flex-direction:column;gap:9px;max-height:340px;min-height:120px;overflow:auto;margin:22px auto 0;max-width:640px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff;text-align:left}
+.transcript:empty:before{content:attr(data-empty);margin:auto;color:var(--muted);font-size:13px}
+.msg{max-width:85%;padding:9px 13px;border-radius:13px;border:1px solid var(--line);background:#f7f8fb;font-size:14px;line-height:1.5}
+.msg small{display:block;margin-bottom:2px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.1em}
+.msg.you{align-self:flex-end;background:#eef0ff;border-color:#d6d9f5}
+.chat-form{display:flex;gap:9px;max-width:640px;margin:12px auto 0}.chat-form input{flex:1}
+body.embedded .app{padding-top:28px}body.embedded .header{margin-bottom:28px}
+
+body[data-page="scenario"] #form{display:none}
+body[data-page="configure"] .scenario-source{display:none}
+.page-switch{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.page-switch[hidden]{display:none}
+@media(max-width:520px){.page-switch{justify-content:stretch}.page-switch .btn{width:100%}}
 </style>
 </head>
 <body data-page="scenario">
@@ -376,13 +390,13 @@ ids.forEach(id=>$(id).addEventListener("input",()=>{$(id).closest(".field").clas
 load();renderObjections();
 ownDraft={...data,objections:[...data.objections]};
 populateLibraryOptions();
-const page=new URLSearchParams(location.search).get("step")==="configure"?"configure":"scenario";
+const page=PARAMS.get("step")==="configure"?"configure":"scenario";
 document.body.dataset.page=page;
 if(page==="configure"){
-  $("#configure .step-heading h2").textContent="Configure your situation";
-  $("#configure .step-heading p").textContent="Review the selected scenario, then add the details that will shape the live buyer conversation.";
+  document.querySelector("#configure .step-heading h2").textContent="Configure your situation";
+  document.querySelector("#configure .step-heading p").textContent="Review the selected scenario, then add the details that will shape the live buyer conversation.";
 }
-const savedSource=sessionStorage.getItem("reps-roleplay-source");
+const savedSource=page==="configure"?sessionStorage.getItem("reps-roleplay-source"):null;
 if(savedSource==="library"){
   $("scenarioSource").value="library";
   const savedLibrary=sessionStorage.getItem("reps-roleplay-library");
@@ -391,13 +405,16 @@ if(savedSource==="library"){
 }
 $("continue-to-configure").hidden=page!=="scenario";
 $("back-to-scenarios").hidden=page!=="configure";
+// Keep how the page was opened (embedded, text/voice) when switching steps; the scenario
+// choice itself travels via sessionStorage and the saved draft.
+const stepUrl=step=>{const q=new URLSearchParams();["embedded","mode","agent"].forEach(k=>{if(PARAMS.get(k))q.set(k,PARAMS.get(k))});if(step)q.set("step",step);const s=q.toString();return "voice.html"+(s?"?"+s:"")};
 $("continue-to-configure").addEventListener("click",()=>{
   read();
   sessionStorage.setItem("reps-roleplay-source",$("scenarioSource").value);
   sessionStorage.setItem("reps-roleplay-library",$("libraryScenario").value);
-  location.href="voice.html?step=configure";
+  location.href=stepUrl("configure");
 });
-$("back-to-scenarios").addEventListener("click",()=>{location.href="voice.html"});
+$("back-to-scenarios").addEventListener("click",()=>{location.href=stepUrl("")});
 function putScenario(s){data={...s,objections:[...s.objections]};ids.forEach(id=>$(id).value=data[id]||"");renderObjections()}
 $("scenarioSource").addEventListener("change",()=>{
   const fromLibrary=$("scenarioSource").value==="library";

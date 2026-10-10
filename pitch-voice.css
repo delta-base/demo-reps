@@ -1,5 +1,4 @@
 /* REPS — Voice pitch practice (ElevenLabs Agents) */
-.scenario-card .card-voice{margin-top:6px;color:#f87000}.scenario-card .card-voice:hover{color:var(--blue)}
 .scenario-card.voice{background:#e9e6f7}
 .scenario-card .pill.voice-pill{display:inline-flex;align-items:center;gap:6px}
 .scenario-card .pill.voice-pill:before{content:"";width:7px;height:7px;border-radius:50%;background:#f87000;box-shadow:0 0 0 3px #f8700030}
