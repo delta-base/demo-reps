@@ -1,0 +1,14 @@
+# Only the site goes into the web root: never dotfiles, the Node voice
+# server, docs, or the deployment and voice-engine folders themselves.
+.git
+.gitignore
+.env
+.env.*
+*.mjs
+*.md
+deploy/**
+voice-local
+# …except the two files this Dockerfile installs (removed from the web
+# root again after COPY, see the Dockerfile).
+!deploy/breakthrough-hub/nginx.conf
+!deploy/breakthrough-hub/40-voice-config.sh
