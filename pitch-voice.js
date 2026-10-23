@@ -361,7 +361,7 @@ function ensureDialog() {
   d = document.createElement('dialog');
   d.id = 'voice-dialog';
   d.setAttribute('aria-labelledby', 'vp-title');
-  d.innerHTML = `<div class="vp-header"><img src="imgs/REPS_logo.png" alt="REPS" width="2086" height="754"><span class="vp-badge">LIVE ROLEPLAY</span><button class="vp-close" type="button" aria-label="Close voice practice">×</button></div><div class="vp-body" id="vp-content"></div>`;
+  d.innerHTML = `<div class="vp-header"><img src="imgs/get-your-reps-logo.png" alt="Get your REPS" width="1200" height="675"><span class="vp-badge">LIVE ROLEPLAY</span><button class="vp-close" type="button" aria-label="Close voice practice">×</button></div><div class="vp-body" id="vp-content"></div>`;
   document.body.appendChild(d);
   d.querySelector('.vp-close').addEventListener('click', closeDialog);
   d.addEventListener('close', handleClosed); // Esc key

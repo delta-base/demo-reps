@@ -180,8 +180,10 @@
     }
     @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
   </style>
+  <link rel="stylesheet" href="theme-gyr.css">
+  <script src="theme-effects.js" defer></script>
 </head>
-<body>
+<body class="page-scan">
   <header class="hero" id="top">
     <section class="banner-section" aria-label="Sales Excellence visuals">
       <div class="wrap">
@@ -203,13 +205,13 @@
     <div class="wrap hero-grid">
       <div>
         <div class="eyebrow">A diagnostic for sales leaders</div>
-        <h1>See what is really shaping<br><em>your sales performance.</em></h1>
+        <h1>See what is really shaping<br><em>your sales <span class="mark-circle">performance</span></em></h1>
         <p class="hero-copy">Your team may already know what “good” looks like. The Sales Excellence Scan helps reveal <strong>where execution breaks down</strong> — across clarity, capability, coaching and the system around the seller.</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="#request">Take the Sales Excellence Scan <span aria-hidden="true">→</span></a>
           <a class="btn btn-ghost" href="#what-you-get">See what you’ll learn</a>
         </div>
-        <div class="micro">Focused. Practical. Built to turn insight into an actionable pilot.</div>
+        <div class="micro">A focused scan that turns what you learn into a pilot you can actually run.</div>
       </div>
 
       <aside class="scan-card reveal" aria-label="Illustrative Sales Excellence Scan preview">
@@ -224,7 +226,7 @@
           <div class="signal"><small>Signal 04</small><b>Workflow friction</b><div class="bar"><i style="width:81%"></i></div></div>
         </div>
         <div class="scan-flow" aria-label="Scan process">
-          <div class="flow-pill active">Diagnose</div><div class="arrow">→</div><div class="flow-pill">Prioritize</div><div class="arrow">→</div><div class="flow-pill">Pilot</div>
+          <div class="flow-pill active">Diagnose</div><span class="arrow">→</span><div class="flow-pill">Prioritize</div><span class="arrow">→</span><div class="flow-pill">Pilot</div>
         </div>
       </aside>
     </div>
@@ -245,7 +247,7 @@
         <div class="section-head reveal">
           <div><div class="section-index">01 / What the Scan reveals</div></div>
           <div>
-            <h2>Don’t prescribe more training before you diagnose the gap.</h2>
+            <h2>Don’t prescribe more training before you diagnose <span class="mark-underline">the gap</span>.</h2>
             <p class="lead">The Scan separates skill issues from execution issues, so your next investment is aimed at the barrier that actually matters.</p>
           </div>
         </div>
@@ -253,19 +255,19 @@
         <div class="value-grid">
           <article class="value-card reveal">
             <div class="value-no">01</div>
-            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12h16M12 4v16" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="icon" aria-hidden="true"><svg class="gyr-icon" viewBox="0 0 64 64"><path d="M32 4V20" stroke="#ff6b1a"/><path d="M32 44V60" stroke="#1b9ad6"/><path d="M4 32H20" stroke="#e8ef74"/><path d="M44 32H60" stroke="#f4f1ea"/><rect x="26" y="26" width="12" height="12" fill="#ff6b1a"/></svg></div>
             <h3>Where performance gets stuck</h3>
             <p>Spot friction in expectations, confidence, manager reinforcement, workflow and day-to-day selling behaviour.</p>
           </article>
           <article class="value-card reveal">
             <div class="value-no">02</div>
-            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18l5-5 4 4 7-9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 8h4v4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="icon" aria-hidden="true"><svg class="gyr-icon" viewBox="0 0 64 64"><path d="M12 56V46" stroke="#f4f1ea"/><path d="M25 56V38" stroke="#1b9ad6"/><path d="M38 56V30" stroke="#e8ef74"/><path d="M51 56V22" stroke="#ff6b1a"/><path d="M8 30L22 20L32 25L50 9" stroke="#ff6b1a" stroke-width="5"/><path d="M41 8H51V18" stroke="#ff6b1a" stroke-width="5"/></svg></div>
             <h3>What to prioritize first</h3>
             <p>Turn broad capability themes into a small number of high-leverage improvement priorities your team can act on.</p>
           </article>
           <article class="value-card reveal">
             <div class="value-no">03</div>
-            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 19V9M12 19V5M18 19v-7" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="icon" aria-hidden="true"><svg class="gyr-icon" viewBox="0 0 64 64"><path d="M8 55H56" stroke="#1b9ad6"/><path d="M20 55V11" stroke="#f4f1ea"/><path d="M24 12H47L40 21L47 30H24Z" fill="#ff6b1a" stroke="#ff6b1a" stroke-width="3"/><rect x="50" y="50" width="9" height="9" fill="#e8ef74"/></svg></div>
             <h3>How to shape a focused pilot</h3>
             <p>Use the findings to define the right practice, coaching and measurement approach before scaling anything.</p>
           </article>
@@ -296,12 +298,12 @@
       <div class="wrap invite-grid">
         <div class="reveal">
           <div class="eyebrow">Next step</div>
-          <h2>Turn insight into action.</h2>
+          <h2>Turn insight into <span class="mark-circle">action</span></h2>
           <p class="lead">Book a short conversation to explore where a Sales Excellence Scan could create the most value for your team.</p>
           <div class="proof-points">
             <span><i></i>Clear diagnostic signals</span>
-            <span><i></i>Practical prioritization</span>
-            <span><i></i>Pilot-ready next steps</span>
+            <span><i></i>A short list of priorities</span>
+            <span><i></i>Next steps ready for a pilot</span>
           </div>
         </div>
 
@@ -315,7 +317,7 @@
   </main>
 
   <footer>
-    <div class="wrap foot"><div>© 2026 REPS. Keep showing up.</div><div><a href="http://www.reps.be/legal/TrustCenter-v0.1.html">Trust Center</a></div></div>
+    <div class="wrap foot"><div>© 2026 REPS</div><div><a href="http://www.reps.be/legal/TrustCenter-v0.1.html">Trust Center</a></div></div>
   </footer>
 
   <script>

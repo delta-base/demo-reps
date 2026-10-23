@@ -38,12 +38,14 @@ body[data-page="configure"] .scenario-source{display:none}
 .page-switch[hidden]{display:none}
 @media(max-width:520px){.page-switch{justify-content:stretch}.page-switch .btn{width:100%}}
 </style>
+<link rel="stylesheet" href="theme-gyr.css">
+<script src="theme-effects.js" defer></script>
 </head>
 <body data-page="scenario">
 <main class="app">
 <header class="header">
   <p class="eyebrow">REPS · AI roleplay</p>
-  <h1>Sharpen your pitch.<br>Practice the conversation.</h1>
+  <h1>Sharpen your <span class="mark-circle">pitch</span><br>before the real conversation</h1>
   <p>Configure the situation, prepare for the pushback, then step into a live buyer conversation.</p>
 </header>
 
@@ -168,7 +170,7 @@ const libraryScenarios={
   stakeholders:{context:"Your operational champion likes the proposal. The decision also involves Finance, IT, and the VP Sales.",storyline:"The champion offers to circulate the proposal internally, but has not yet mapped who decides or what evidence each stakeholder needs.",challenge:"Understand the decision process and stakeholder concerns while helping the champion build consensus without going around them.",intention:"Map decision roles and criteria, surface likely concerns, and agree a useful path to engage the right people.",tradables:"Offer a focused business-case or security working session with Finance and IT in exchange for stakeholder access and clear decision criteria.",nonNegotiables:"Do not bypass the champion or assume their support means the full buying group is aligned.",objections:["I will circulate the proposal internally and get back to you.","Finance needs a credible payback case.","IT is sceptical of vendor claims and will want specifics."]},
   commitment:{context:"You are speaking with a business unit director who is positive about your proposal but avoids a concrete next step.",storyline:"The buyer says they need more time and may reconnect next quarter. Finance is unsure whether the expected productivity gain justifies the investment this year.",challenge:"Diagnose the hesitation and make the consequences of delay concrete without manufacturing urgency.",intention:"Find what remains unresolved, explore the buyer's cost of waiting, and agree a mutual next step that advances the decision.",tradables:"Offer a working session to validate productivity assumptions with Finance in exchange for a decision review on an agreed date.",nonNegotiables:"Do not invent urgency, rely on seller-created deadlines, or accept a vague follow-up without a useful purpose.",objections:["We need more time to think about it.","Finance is not convinced the productivity gain is large enough.","Send the materials and we will get back to you next quarter."]}
 };
-const libraryTitles={discount:"“Give us your best price” · Price & value",procurement:"The last-minute curveball · Procurement",gap:"Make the gap worth changing · Value",challenger:"Teach something worth changing for · Challenger",objection:"Don’t swat the objection · Objection handling",margin:"Hold the line. Keep the deal alive. · Margin",stakeholders:"Don’t sell to one person · Stakeholders",commitment:"Move beyond “we’ll think about it” · Commitment"};
+const libraryTitles={discount:"“Give us your best price” · Price & value",procurement:"The last-minute curveball · Procurement",gap:"Make the gap worth changing · Value",challenger:"Teach something worth changing for · Challenger",objection:"Don’t swat the objection · Objection handling",margin:"Protect your margin without losing the deal · Margin",stakeholders:"Don’t sell to one person · Stakeholders",commitment:"Move beyond “we’ll think about it” · Commitment"};
 function getScenarioHistory(){try{const items=JSON.parse(localStorage.getItem(CONFIG.HISTORY_KEY)||"[]");return Array.isArray(items)?items:[]}catch{return []}}
 function saveScenarioHistory(items){try{localStorage.setItem(CONFIG.HISTORY_KEY,JSON.stringify(items))}catch{}}
 function addConfirmedScenarioToHistory(scenario){

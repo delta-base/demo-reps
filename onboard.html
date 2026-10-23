@@ -134,8 +134,11 @@
     #app>.intro-selection-title{margin-bottom:20px}
     #app:has(>.intro-trust)>.hint{margin-top:28px}
   }
-</style></head>
-<body><main class="stage"><section class="card" id="app"></section></main>
+</style>
+<link rel="stylesheet" href="theme-gyr.css">
+<script src="theme-effects.js" defer></script>
+</head>
+<body class="page-onboard"><main class="stage"><section class="card" id="app"></section></main>
 <script>
 const state={}; let step=0,autoNextTimer,planProgressTimer;
 const brand='';
